@@ -1,5 +1,6 @@
 import type { Command } from "commander";
-import { showIntro, showOutro, askText, askSelect } from "../ui/index.js";
+import pc from "picocolors";
+import { showIntro, showOutro, askText, askSelect, log } from "../ui/index.js";
 
 export function registerSetupCommand(program: Command): void {
   program
@@ -7,6 +8,15 @@ export function registerSetupCommand(program: Command): void {
     .description("Configure sheltr for a repository")
     .action(async () => {
       showIntro();
+
+      log.info(
+        `Let's connect sheltr to your private Git repo.\n` +
+        `  This is where your encrypted .env files will be stored.\n` +
+        `  You'll need a ${pc.bold("private repository")} and an ${pc.bold("encryption key")}.`,
+      );
+
+      console.log();
+      log.info(pc.dim("Step 1 of 2") + " — Repository");
 
       const repoUrl = await askText({
         message: "What is your Git repository URL?",
@@ -16,11 +26,14 @@ export function registerSetupCommand(program: Command): void {
         },
       });
 
+      console.log();
+      log.info(pc.dim("Step 2 of 2") + " — Encryption key");
+
       const keyMethod = await askSelect({
         message: "How would you like to configure your encryption key?",
         options: [
-          { value: "generate", label: "Generate a new key" },
-          { value: "import", label: "Import an existing key" },
+          { value: "generate", label: "Generate a new key — create a fresh key for this machine" },
+          { value: "import", label: "Import an existing key — use a key from another machine" },
         ],
       });
 
@@ -37,6 +50,8 @@ export function registerSetupCommand(program: Command): void {
       // TODO: implement actual setup logic
       void repoUrl;
 
+      console.log();
+      log.success("Configuration saved.");
       showOutro("Setup complete! Run `sheltr push` to sync your env files.");
     });
 }
