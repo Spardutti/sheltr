@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/spardutti/projects/sheltr/.claude/hooks/skill-forced-eval-hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

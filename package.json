@@ -1,0 +1,24 @@
+{
+  "name": "sheltr",
+  "version": "0.0.1",
+  "description": "Encrypted .env file storage for teams",
+  "type": "module",
+  "bin": {
+    "sheltr": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "postbuild": "node -e \"const fs=require('fs');const f='dist/cli.js';const c=fs.readFileSync(f,'utf8');if(!c.startsWith('#!'))fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c)\""
+  },
+  "keywords": ["env", "encryption", "secrets", "cli"],
+  "license": "MIT",
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "commander": "^13.1.0",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}
