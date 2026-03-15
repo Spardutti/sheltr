@@ -58,6 +58,13 @@ export async function hasCommits(cwd: string): Promise<boolean> {
   }
 }
 
+export async function rm(cwd: string, files: string[], recursive?: boolean): Promise<void> {
+  const args = ["rm"];
+  if (recursive) args.push("-r");
+  args.push("--", ...files);
+  await run("git", args, cwd);
+}
+
 export async function isVaultCloned(vaultPath: string): Promise<boolean> {
   try {
     await access(vaultPath);

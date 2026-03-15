@@ -5,13 +5,14 @@ import { readConfig } from "../core/config.js";
 import { detectProject, scanEnvFiles } from "../core/project.js";
 import { ensureGitattributes, copyEnvFilesToVault } from "../core/vault.js";
 import * as git from "../core/git.js";
+import { withErrorHandling } from "../utils/errors.js";
 
 export function registerPushCommand(program: Command): void {
   program
     .command("push")
     .description("Encrypt and push env files")
     .option("-m, --message <msg>", "Custom commit message")
-    .action(async (opts: { message?: string }) => {
+    .action(withErrorHandling(async (opts: { message?: string }) => {
       showIntro();
 
       const config = await readConfig();
@@ -107,5 +108,5 @@ export function registerPushCommand(program: Command): void {
       });
 
       showOutro("Push complete!");
-    });
+    }));
 }

@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile, writeFile, access, rm as fsRm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const GITATTRIBUTES_RULE = ".env* filter=git-crypt diff=git-crypt";
@@ -88,4 +88,26 @@ export async function copyFilesFromVault(
     await mkdir(dirname(dest), { recursive: true });
     await copyFile(src, dest);
   }
+}
+
+export async function removeVaultProject(vaultPath: string, projectName: string): Promise<void> {
+  const projectDir = join(vaultPath, projectName);
+  await fsRm(projectDir, { recursive: true, force: true });
+}
+
+export async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function filesMatch(pathA: string, pathB: string): Promise<boolean> {
+  const [bufA, bufB] = await Promise.all([
+    readFile(pathA),
+    readFile(pathB),
+  ]);
+  return bufA.equals(bufB);
 }

@@ -7,13 +7,13 @@ import { readConfig } from "../core/config.js";
 import { detectProject } from "../core/project.js";
 import { listVaultProjects, listVaultFiles, copyFilesFromVault } from "../core/vault.js";
 import * as git from "../core/git.js";
-import { SheltrError } from "../utils/errors.js";
+import { SheltrError, withErrorHandling } from "../utils/errors.js";
 
 export function registerPullCommand(program: Command): void {
   program
     .command("pull [project]")
     .description("Pull and restore env files from the vault")
-    .action(async (projectArg?: string) => {
+    .action(withErrorHandling(async (projectArg?: string) => {
       showIntro();
 
       const config = await readConfig();
@@ -139,5 +139,5 @@ export function registerPullCommand(program: Command): void {
       });
 
       showOutro("Pull complete!");
-    });
+    }));
 }

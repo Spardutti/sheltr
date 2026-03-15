@@ -6,11 +6,22 @@
   "bin": {
     "sheltr": "./dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postbuild": "node -e \"const fs=require('fs');const f='dist/cli.js';const c=fs.readFileSync(f,'utf8');if(!c.startsWith('#!'))fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c)\""
   },
-  "keywords": ["env", "encryption", "secrets", "cli"],
+  "keywords": [
+    "env",
+    "encryption",
+    "secrets",
+    "cli"
+  ],
   "license": "MIT",
   "dependencies": {
     "@clack/prompts": "^0.9.1",
@@ -19,6 +30,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
-    "typescript": "^5.8.2"
+    "memfs": "^4.56.11",
+    "typescript": "^5.8.2",
+    "vitest": "^4.1.0"
   }
 }

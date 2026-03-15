@@ -16,12 +16,13 @@ import {
   importKey,
 } from "../core/crypt.js";
 import { askConfirm } from "../ui/prompts.js";
+import { withErrorHandling } from "../utils/errors.js";
 
 export function registerSetupCommand(program: Command): void {
   program
     .command("setup")
     .description("Configure sheltr for a repository")
-    .action(async () => {
+    .action(withErrorHandling(async () => {
       showIntro();
 
       // Check for existing config
@@ -158,5 +159,5 @@ export function registerSetupCommand(program: Command): void {
 
       log.success("Configuration saved.");
       showOutro("Setup complete! Run `sheltr push` to sync your env files.");
-    });
+    }));
 }

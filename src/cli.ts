@@ -6,6 +6,7 @@ import { registerPushCommand } from "./commands/push.js";
 import { registerPullCommand } from "./commands/pull.js";
 import { registerListCommand } from "./commands/list.js";
 import { registerDeleteCommand } from "./commands/delete.js";
+import { registerStatusCommand } from "./commands/status.js";
 import { handleError } from "./utils/errors.js";
 
 const program = new Command();
@@ -20,6 +21,7 @@ registerPushCommand(program);
 registerPullCommand(program);
 registerListCommand(program);
 registerDeleteCommand(program);
+registerStatusCommand(program);
 
 try {
   await program.parseAsync(process.argv);
