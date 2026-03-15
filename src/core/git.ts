@@ -49,6 +49,15 @@ export async function isGitRepo(dir: string): Promise<boolean> {
   }
 }
 
+export async function hasCommits(cwd: string): Promise<boolean> {
+  try {
+    await run("git", ["rev-parse", "HEAD"], cwd);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function isVaultCloned(vaultPath: string): Promise<boolean> {
   try {
     await access(vaultPath);
