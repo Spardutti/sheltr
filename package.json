@@ -1,6 +1,6 @@
 {
   "name": "@spardutti/sheltr",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Encrypted .env file storage for teams",
   "type": "module",
   "bin": {
