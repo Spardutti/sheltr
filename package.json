@@ -1,7 +1,7 @@
 {
   "name": "@spardutti/sheltr",
-  "version": "0.2.1",
-  "description": "Encrypted .env file storage for teams",
+  "version": "0.2.2",
+  "description": "Encrypted .env file storage — git-native, self-hosted, zero SaaS",
   "type": "module",
   "bin": {
     "sheltr": "dist/cli.js"

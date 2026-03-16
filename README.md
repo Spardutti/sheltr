@@ -8,6 +8,8 @@ Every developer has lost a `.env` file. A dead laptop, a fresh clone, a new mach
 
 Sheltr fixes this. It stores your `.env` files in a **private Git repo you own**, encrypted with **AES-256 via git-crypt**. Push from one machine, pull from another. No third-party servers. No subscriptions. Just your repo, your key, your secrets.
 
+Designed for **solo developers** and **personal use across multiple machines**. Can also be used by small, trusted teams.
+
 ```bash
 npx @spardutti/sheltr setup    # one-time setup
 npx @spardutti/sheltr push     # encrypt and store your .env files
@@ -193,6 +195,35 @@ Works with any language or framework. Monorepos with nested `.env` files are ful
 | **Vendor lock-in** | None — it's just Git | Full |
 | **Works offline** | Yes | No |
 | **Setup time** | 2 minutes | Account creation, team setup, integrations |
+
+---
+
+## Using Sheltr with a Team
+
+Sheltr can work for small, trusted teams. Teammates need **two things** to access the vault:
+
+1. **Collaborator access** to the private vault repo on GitHub/GitLab
+2. **The encryption key** to decrypt `.env` contents
+
+Without both, they can't do anything — repo access alone shows encrypted blobs, and the key alone is useless without the repo.
+
+**Adding a teammate:**
+1. Invite them as a collaborator on your vault repo (GitHub → Settings → Collaborators)
+2. Share the encryption key securely (password manager, in person, or encrypted message — never over Slack/email in plaintext)
+3. They run `npx @spardutti/sheltr key import <base64>` then `npx @spardutti/sheltr setup` and choose "Import an existing key"
+
+**Removing a teammate:**
+1. Remove them as a collaborator on the vault repo — they can no longer pull or push
+2. Rotate any sensitive secrets (API keys, DB passwords, etc.) — standard practice when anyone leaves a project, with or without Sheltr
+
+> This is no different from normal development. Any dev with project access already has `.env` files on their machine. Sheltr doesn't make revocation harder or easier — the real action is always rotating the secrets themselves.
+
+**Limitations:**
+- Single shared key — no per-user permissions
+- Everyone with access sees all projects in the vault
+- No audit logs
+
+For teams that need access control, user revocation, or audit trails, use a dedicated secrets manager like Doppler or 1Password. Sheltr is built for simplicity and ownership, not enterprise access management.
 
 ---
 
