@@ -11,10 +11,24 @@ Sheltr fixes this. It stores your `.env` files in a **private Git repo you own**
 Designed for **solo developers** and **personal use across multiple machines**. Can also be used by small, trusted teams.
 
 ```bash
-npx @spardutti/sheltr setup    # one-time setup
+# 1. Create an empty private repo on GitHub/GitLab — this is your vault
+# 2. Run sheltr
+npx @spardutti/sheltr setup    # one-time setup (connects to your vault repo)
 npx @spardutti/sheltr push     # encrypt and store your .env files
 npx @spardutti/sheltr pull     # restore them anywhere
 ```
+
+**Tip:** add an alias to skip typing the full package name every time:
+
+```bash
+# bash
+echo 'alias sheltr="npx @spardutti/sheltr"' >> ~/.bashrc
+
+# zsh
+echo 'alias sheltr="npx @spardutti/sheltr"' >> ~/.zshrc
+```
+
+Then just use `sheltr push`, `sheltr pull`, etc.
 
 ---
 
