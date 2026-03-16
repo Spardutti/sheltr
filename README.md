@@ -120,6 +120,17 @@ npx @spardutti/sheltr status
 - **Git**
 - **git-crypt** — Sheltr will offer to install it for you during setup
 
+### Platform Support
+
+| Platform | Supported |
+|----------|-----------|
+| **Linux** | Yes |
+| **macOS** | Yes |
+| **Windows (WSL)** | Yes |
+| **Windows native** | No — git-crypt has no official Windows support |
+
+Windows users: install [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) and run Sheltr from there.
+
 ---
 
 ## Security
