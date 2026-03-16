@@ -26,7 +26,11 @@ export function registerPullCommand(program: Command): void {
 
       // 2. Pull latest from vault
       if (await git.hasCommits(vaultPath)) {
-        await git.pull(vaultPath);
+        await withSpinner({
+          start: "Syncing vault...",
+          stop: "Vault synced!",
+          task: () => git.pull(vaultPath),
+        });
       }
 
       // 3. Resolve project name
@@ -84,8 +88,9 @@ export function registerPullCommand(program: Command): void {
         required: true,
       });
 
-      // 7. Conflict detection per file
-      const actions = new Map<string, "overwrite" | "backup" | "skip">();
+      // 7. Conflict detection — auto-backup existing files, let user skip
+      const filesToRestore: string[] = [];
+      const filesToBackup: string[] = [];
 
       for (const file of selected) {
         const localPath = join(cwd, file);
@@ -98,22 +103,17 @@ export function registerPullCommand(program: Command): void {
         }
 
         if (exists) {
-          const action = await askSelect({
-            message: `"${file}" already exists locally. How to resolve?`,
-            options: [
-              { value: "overwrite", label: "Overwrite local file" },
-              { value: "backup", label: "Backup local, then overwrite" },
-              { value: "skip", label: "Skip this file" },
-            ],
+          const overwrite = await askConfirm({
+            message: `"${file}" already exists locally. Overwrite? (backup will be created)`,
           });
-          actions.set(file, action as "overwrite" | "backup" | "skip");
+          if (overwrite) {
+            filesToRestore.push(file);
+            filesToBackup.push(file);
+          }
         } else {
-          actions.set(file, "overwrite");
+          filesToRestore.push(file);
         }
       }
-
-      // Filter out skipped files
-      const filesToRestore = selected.filter((f) => actions.get(f) !== "skip");
 
       if (filesToRestore.length === 0) {
         showOutro("All files skipped.");
@@ -125,12 +125,10 @@ export function registerPullCommand(program: Command): void {
         start: `Restoring ${filesToRestore.length} file(s)...`,
         stop: "Files restored!",
         task: async () => {
-          // Create backups first
-          for (const file of filesToRestore) {
-            if (actions.get(file) === "backup") {
-              const localPath = join(cwd, file);
-              await copyFile(localPath, localPath + ".backup");
-            }
+          // Auto-backup existing files before overwriting
+          for (const file of filesToBackup) {
+            const localPath = join(cwd, file);
+            await copyFile(localPath, localPath + ".backup");
           }
 
           // Copy from vault
@@ -138,6 +136,10 @@ export function registerPullCommand(program: Command): void {
         },
       });
 
-      showOutro("Pull complete!");
+      if (filesToBackup.length > 0) {
+        log.info(`Backups created: ${filesToBackup.map((f) => f + ".backup").join(", ")}`);
+      }
+
+      showOutro();
     }));
 }

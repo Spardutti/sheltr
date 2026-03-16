@@ -47,7 +47,7 @@ describe("isGitRepo", () => {
     expect(mockExecFile).toHaveBeenCalledWith(
       "git",
       ["rev-parse", "--git-dir"],
-      { cwd: "/some/repo" },
+      expect.objectContaining({ cwd: "/some/repo" }),
       expect.any(Function),
     );
   });
@@ -112,7 +112,7 @@ describe("rm", () => {
     expect(mockExecFile).toHaveBeenCalledWith(
       "git",
       ["rm", "--", "project/.env", "project/.env.local"],
-      { cwd: "/repo" },
+      expect.objectContaining({ cwd: "/repo" }),
       expect.any(Function),
     );
   });
@@ -125,7 +125,7 @@ describe("rm", () => {
     expect(mockExecFile).toHaveBeenCalledWith(
       "git",
       ["rm", "-r", "--", "project"],
-      { cwd: "/repo" },
+      expect.objectContaining({ cwd: "/repo" }),
       expect.any(Function),
     );
   });

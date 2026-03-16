@@ -13,7 +13,7 @@ import { type FileStatus } from "../status.js";
 
 function determineStatus(hasLocal: boolean, hasVault: boolean, match: boolean): FileStatus {
   if (hasLocal && hasVault) {
-    return match ? "in-sync" : "modified";
+    return match ? "in-sync" : "out-of-sync";
   }
   if (hasLocal) return "local-only";
   return "vault-only";
@@ -47,7 +47,7 @@ describe("status file comparison logic", () => {
     const hasVault = await fileExists("/vault/my-app/.env");
     const match = await filesMatch("/project/.env", "/vault/my-app/.env");
 
-    expect(determineStatus(hasLocal, hasVault, match)).toBe("modified");
+    expect(determineStatus(hasLocal, hasVault, match)).toBe("out-of-sync");
   });
 
   it("identifies_local_only_when_not_in_vault", async () => {

@@ -53,7 +53,7 @@ export function registerSetupCommand(program: Command): void {
       console.log(pc.dim("    Your vault    → github.com/you/env-vault  (create this one)"));
       console.log();
       console.log(`  ${pc.dim("1.")} Create an ${pc.bold("empty private repo")} on GitHub/GitLab`);
-      console.log(`  ${pc.dim("2.")} Paste the URL below`);
+      console.log(`  ${pc.dim("2.")} Paste the ${pc.bold("SSH URL")} below (recommended)`);
       console.log(`  ${pc.dim("3.")} Sheltr encrypts and pushes your .env files there`);
       console.log();
 
@@ -61,8 +61,8 @@ export function registerSetupCommand(program: Command): void {
       log.info(pc.dim("Step 1 of 2") + " — Vault repository");
 
       const repoUrl = await askText({
-        message: "Paste your vault repo URL (the empty private repo you just created):",
-        placeholder: "https://github.com/user/env-vault.git",
+        message: "Paste your vault repo SSH URL:",
+        placeholder: "git@github.com:user/env-vault.git",
         validate(value) {
           const v = value.trim();
           if (!v) return "Repository URL is required.";
@@ -71,7 +71,11 @@ export function registerSetupCommand(program: Command): void {
           const isSsh = /^git@.+:.+\/.+/.test(v);
 
           if (!isHttps && !isSsh) {
-            return "Enter a valid Git URL (https://... or git@...:user/repo)";
+            return "Enter a valid Git URL (git@github.com:user/repo.git)";
+          }
+
+          if (isHttps) {
+            return "HTTPS URLs require a credential helper. Use the SSH URL instead (git@github.com:user/repo.git)";
           }
         },
       });

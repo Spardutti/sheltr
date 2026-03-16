@@ -9,7 +9,7 @@ import { listVaultProjects, listVaultFiles, fileExists, filesMatch } from "../co
 import * as git from "../core/git.js";
 import { SheltrError, withErrorHandling } from "../utils/errors.js";
 
-export type FileStatus = "in-sync" | "modified" | "local-only" | "vault-only";
+export type FileStatus = "in-sync" | "out-of-sync" | "local-only" | "vault-only";
 
 interface FileEntry {
   file: string;
@@ -79,7 +79,7 @@ export function registerStatusCommand(program: Command): void {
 
         if (hasLocal && hasVault) {
           const match = await filesMatch(localPath, vaultFilePath);
-          status = match ? "in-sync" : "modified";
+          status = match ? "in-sync" : "out-of-sync";
         } else if (hasLocal) {
           status = "local-only";
         } else {
@@ -106,8 +106,8 @@ function formatStatus(status: FileStatus): string {
   switch (status) {
     case "in-sync":
       return pc.green("in sync");
-    case "modified":
-      return pc.yellow("modified");
+    case "out-of-sync":
+      return pc.yellow("out of sync — run sheltr push or pull");
     case "local-only":
       return pc.blue("local only");
     case "vault-only":

@@ -2,26 +2,55 @@ import { execFile } from "node:child_process";
 import { access } from "node:fs/promises";
 import { SheltrError } from "../utils/errors.js";
 
+const DEFAULT_TIMEOUT = 30_000; // 30 seconds
+
 function run(
   command: string,
   args: string[],
   cwd?: string,
+  timeoutMs: number = DEFAULT_TIMEOUT,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(command, args, { cwd }, (error, stdout, stderr) => {
+    const env = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+    const child = execFile(command, args, { cwd, timeout: timeoutMs, env }, (error, stdout, stderr) => {
       if (error) {
-        // Never leak full stderr to the user — it may contain path info
-        const message = stderr?.trim() || error.message;
+        const stderrMsg = stderr?.trim() || "";
+        const message = classifyGitError(stderrMsg, error);
         reject(new SheltrError(message, "GIT_ERROR"));
         return;
       }
       resolve(stdout.trim());
     });
+
+    // Prevent git from hanging waiting for credentials
+    child.stdin?.end();
   });
 }
 
+function classifyGitError(stderr: string, error: Error): string {
+  const msg = stderr.toLowerCase();
+
+  if ((error as NodeJS.ErrnoException & { killed?: boolean }).killed || msg.includes("timed out")) {
+    return "Operation timed out. Check your network connection and try again.";
+  }
+  if (msg.includes("repository not found") || msg.includes("does not exist")) {
+    return "Repository not found. Check the URL and make sure the repo exists.";
+  }
+  if (msg.includes("authentication") || msg.includes("permission denied") || msg.includes("could not read from remote") || msg.includes("terminal prompts disabled")) {
+    return "Authentication failed. Check your credentials and repo access.\n  Tip: use an SSH URL (git@github.com:user/repo) or set up a GitHub credential helper.";
+  }
+  if (msg.includes("already exists and is not an empty directory")) {
+    return "Vault directory already exists. Run `sheltr setup` to reconfigure.";
+  }
+  if (msg.includes("could not resolve host")) {
+    return "Could not connect to server. Check your internet connection.";
+  }
+
+  return stderr || error.message;
+}
+
 export async function cloneRepo(url: string, dest: string): Promise<void> {
-  await run("git", ["clone", url, dest]);
+  await run("git", ["clone", url, dest], undefined, 60_000);
 }
 
 export async function pull(cwd: string): Promise<void> {

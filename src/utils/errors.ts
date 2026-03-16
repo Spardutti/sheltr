@@ -14,7 +14,7 @@ export class SheltrError extends Error {
 export function handleError(error: unknown): never {
   if (error instanceof SheltrError) {
     log.error(error.message);
-    showOutro();
+    showOutro("Something went wrong.");
     process.exit(1);
   }
 
@@ -25,7 +25,7 @@ export function handleError(error: unknown): never {
     console.error(error);
   }
 
-  showOutro();
+  showOutro("Something went wrong.");
   process.exit(1);
 }
 

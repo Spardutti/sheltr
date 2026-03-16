@@ -1,7 +1,9 @@
 import type { Command } from "commander";
+import { basename } from "node:path";
 import pc from "picocolors";
-import { showIntro, showOutro, log } from "../ui/index.js";
+import { showIntro, showOutro, withSpinner, log } from "../ui/index.js";
 import { readConfig } from "../core/config.js";
+import { detectProject } from "../core/project.js";
 import { listVaultProjects, listVaultFiles } from "../core/vault.js";
 import * as git from "../core/git.js";
 import { SheltrError, withErrorHandling } from "../utils/errors.js";
@@ -21,7 +23,11 @@ export function registerListCommand(program: Command): void {
       }
 
       if (await git.hasCommits(vaultPath)) {
-        await git.pull(vaultPath);
+        await withSpinner({
+          start: "Syncing vault...",
+          stop: "Vault synced!",
+          task: () => git.pull(vaultPath),
+        });
       }
 
       const projects = await listVaultProjects(vaultPath);
@@ -32,9 +38,22 @@ export function registerListCommand(program: Command): void {
         return;
       }
 
+      // Detect current project to highlight it in the list
+      const cwd = process.cwd();
+      const detected = await detectProject(cwd);
+      const currentName = detected?.name ?? basename(cwd);
+      const inVault = projects.includes(currentName);
+
+      if (inVault) {
+        log.info(`Current project: ${pc.bold(currentName)} ${pc.green("(in vault)")}\n`);
+      } else {
+        log.info(`Current project: ${pc.bold(currentName)} ${pc.yellow("(not in vault)")}\n`);
+      }
+
       for (const project of projects) {
         const files = await listVaultFiles(vaultPath, project);
-        console.log(`  ${pc.bold(project)} ${pc.dim(`(${files.length} file${files.length === 1 ? "" : "s"})`)}`);
+        const marker = project === currentName ? pc.green(" ←") : "";
+        console.log(`  ${pc.bold(project)} ${pc.dim(`(${files.length} file${files.length === 1 ? "" : "s"})`)}${marker}`);
         for (const file of files) {
           console.log(`    ${pc.dim(file)}`);
         }

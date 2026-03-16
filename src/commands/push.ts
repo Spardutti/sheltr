@@ -107,6 +107,6 @@ export function registerPushCommand(program: Command): void {
         },
       });
 
-      showOutro("Push complete!");
+      showOutro();
     }));
 }

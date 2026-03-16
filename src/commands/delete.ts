@@ -23,7 +23,11 @@ export function registerDeleteCommand(program: Command): void {
       }
 
       if (await git.hasCommits(vaultPath)) {
-        await git.pull(vaultPath);
+        await withSpinner({
+          start: "Syncing vault...",
+          stop: "Vault synced!",
+          task: () => git.pull(vaultPath),
+        });
       }
 
       const projects = await listVaultProjects(vaultPath);
@@ -90,7 +94,6 @@ export function registerDeleteCommand(program: Command): void {
         },
       });
 
-      log.success(`Project "${projectName}" deleted from vault.`);
       showOutro();
     }));
 }
