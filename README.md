@@ -83,6 +83,8 @@ Your `.env` files are restored to the exact paths they came from. If a file alre
 | `npx @spardutti/sheltr status` | Compare local vs vault — shows `in sync`, `out of sync`, `local only`, `vault only` |
 | `npx @spardutti/sheltr list` | List all projects stored in the vault |
 | `npx @spardutti/sheltr delete` | Remove a project from the vault (requires typed confirmation) |
+| `npx @spardutti/sheltr key export` | Export your key as base64 (for password manager backup) |
+| `npx @spardutti/sheltr key import <base64>` | Restore your key from a base64 string |
 
 ### Push with a custom message
 
@@ -135,16 +137,26 @@ npx @spardutti/sheltr status
 
 **Your git-crypt key is the only way to decrypt your vault.** If you lose it, your encrypted `.env` files are unrecoverable.
 
-Back it up to a password manager or other secure location. The key is saved to `~/.sheltr/key` during setup.
+Export your key as a base64 string and save it in a password manager:
+
+```bash
+npx @spardutti/sheltr key export
+```
+
+To restore it on a new machine:
+
+```bash
+npx @spardutti/sheltr key import <base64-string>
+```
 
 ---
 
 ## Setting Up Another Machine
 
-1. Copy your key file to the new machine
+1. Run `npx @spardutti/sheltr key import <base64-string>` (grab the string from your password manager)
 2. Run `npx @spardutti/sheltr setup`
 3. Choose **"Import an existing key"**
-4. Point to the key file
+4. Point to `~/.sheltr/key`
 
 That's it. All your projects and `.env` files are available immediately.
 

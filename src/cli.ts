@@ -7,6 +7,7 @@ import { registerPullCommand } from "./commands/pull.js";
 import { registerListCommand } from "./commands/list.js";
 import { registerDeleteCommand } from "./commands/delete.js";
 import { registerStatusCommand } from "./commands/status.js";
+import { registerKeyCommand } from "./commands/key.js";
 import { handleError } from "./utils/errors.js";
 
 const program = new Command();
@@ -14,7 +15,7 @@ const program = new Command();
 program
   .name("sheltr")
   .description("Encrypted .env file storage for teams")
-  .version("0.1.1");
+  .version("0.2.0");
 
 registerSetupCommand(program);
 registerPushCommand(program);
@@ -22,6 +23,7 @@ registerPullCommand(program);
 registerListCommand(program);
 registerDeleteCommand(program);
 registerStatusCommand(program);
+registerKeyCommand(program);
 
 try {
   await program.parseAsync(process.argv);
