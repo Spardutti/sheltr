@@ -1,159 +1,177 @@
 # Sheltr
 
-Your `.env` files, encrypted and git-synced. No SaaS, no secrets lost.
+**Your `.env` files, encrypted and git-synced. No SaaS, no secrets lost.**
 
-Sheltr is a CLI that stores your `.env` files in a private Git repo encrypted with [git-crypt](https://github.com/AGWA/git-crypt). You own your data, your repo, and your encryption key.
+---
 
-## Why Sheltr?
+Every developer has lost a `.env` file. A dead laptop, a fresh clone, a new machine — and suddenly your project won't start because the secrets are gone. You ping a teammate, dig through Slack, or worse — you just don't have them anymore.
 
-- **Laptop dies?** Your `.env` files are safe in your encrypted vault repo.
-- **Multiple machines?** `sheltr pull` on any machine with the key.
-- **Monorepos?** Sheltr detects all `.env` files across your project.
-- **No SaaS?** Everything stays in your own private Git repo. No third-party servers.
-
-## Quick Start
+Sheltr fixes this. It stores your `.env` files in a **private Git repo you own**, encrypted with **AES-256 via git-crypt**. Push from one machine, pull from another. No third-party servers. No subscriptions. Just your repo, your key, your secrets.
 
 ```bash
-# 1. Create an empty private repo on GitHub/GitLab (your vault)
-
-# 2. Set up sheltr
-npx sheltr setup
-
-# 3. Push your .env files
-npx sheltr push
-
-# 4. On another machine, pull them back
-npx sheltr pull
+npx @spardutti/sheltr setup    # one-time setup
+npx @spardutti/sheltr push     # encrypt and store your .env files
+npx @spardutti/sheltr pull     # restore them anywhere
 ```
 
-## Requirements
-
-- Node.js 18+
-- Git
-- [git-crypt](https://github.com/AGWA/git-crypt) (sheltr will offer to install it during setup)
-
-## Commands
-
-### `sheltr setup`
-
-First-time setup. Clones your vault repo and configures encryption.
-
-- **New vault:** generates a git-crypt key and initializes encryption
-- **Existing vault:** imports your key file and unlocks the repo
-
-```bash
-sheltr setup
-```
-
-### `sheltr push`
-
-Detects your project, scans for `.env` files, and pushes them to the vault.
-
-```bash
-sheltr push                    # auto-detect project
-sheltr push -m "added stripe"  # custom commit message
-```
-
-### `sheltr pull`
-
-Pulls `.env` files from the vault into your project. Handles conflicts per-file (overwrite, backup, or skip).
-
-```bash
-sheltr pull             # auto-detect project
-sheltr pull my-app      # specify project name
-```
-
-### `sheltr status`
-
-Shows sync status between local `.env` files and the vault.
-
-```bash
-sheltr status
-```
-
-Each file is labeled: `in sync`, `modified`, `local only`, or `vault only`.
-
-### `sheltr list`
-
-Lists all projects stored in the vault with their file counts.
-
-```bash
-sheltr list
-```
-
-### `sheltr delete`
-
-Removes a project's `.env` files from the vault. Requires typing the project name to confirm.
-
-```bash
-sheltr delete             # auto-detect or pick from list
-sheltr delete my-app      # specify project name
-```
+---
 
 ## How It Works
 
 ```
-your-projects/                    your-vault-repo (private, encrypted)
-  my-app/                           my-app/
-    .env           -- push -->         .env        (encrypted by git-crypt)
-    .env.local     <-- pull --         .env.local  (encrypted by git-crypt)
-  other-project/                     other-project/
-    .env                               .env
+your-project/                         your-vault-repo/ (private, encrypted)
+│                                     │
+├── .env             ── push ──►      ├── my-app/
+├── .env.local       ◄── pull ──      │   ├── .env          (AES-256 encrypted)
+│                                     │   └── .env.local    (AES-256 encrypted)
+├── frontend/                         │
+│   └── .env         ── push ──►      ├── my-app/frontend/
+│                                     │   └── .env          (AES-256 encrypted)
+└── src/                              │
+    └── index.ts                      └── .gitattributes
 ```
 
-1. Sheltr uses a **separate private Git repo** as your vault (not your project repo)
-2. `.env` file contents are encrypted with **AES-256 via git-crypt** before being committed
-3. Project and folder names are **not encrypted** -- only file contents are
-4. Everything uses standard Git operations -- you get version history for free
+1. **You create a separate private repo** — this is your vault, not your project repo
+2. **Sheltr encrypts `.env` contents** with git-crypt before committing — values are unreadable without your key
+3. **Folder structure is preserved** — monorepo with 10 `.env` files? All of them, in the right place
+4. **Git history is your version control** — every push is a commit, roll back anytime
+
+> Even if your vault repo goes public, the `.env` contents are encrypted blobs. Only machines with your key can read them.
+
+---
+
+## Quick Start
+
+### 1. Create an empty private repo
+
+Go to GitHub or GitLab and create a new **empty private repo** (no README, no .gitignore). This is your vault.
+
+### 2. Set up Sheltr
+
+```bash
+npx @spardutti/sheltr setup
+```
+
+Paste your vault's **SSH URL** (e.g. `git@github.com:you/env-vault.git`), then generate or import an encryption key.
+
+### 3. Push your secrets
+
+```bash
+cd my-project
+npx @spardutti/sheltr push
+```
+
+Sheltr detects your project, finds all `.env` files, lets you pick which ones to store, encrypts them, and pushes to your vault.
+
+### 4. Pull them on another machine
+
+```bash
+npx @spardutti/sheltr pull
+```
+
+Your `.env` files are restored to the exact paths they came from. If a file already exists locally, Sheltr **automatically creates a backup** before overwriting.
+
+---
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `npx @spardutti/sheltr setup` | One-time setup — connect vault repo, configure encryption key |
+| `npx @spardutti/sheltr push` | Encrypt and push `.env` files to the vault |
+| `npx @spardutti/sheltr pull` | Pull and restore `.env` files from the vault |
+| `npx @spardutti/sheltr status` | Compare local vs vault — shows `in sync`, `out of sync`, `local only`, `vault only` |
+| `npx @spardutti/sheltr list` | List all projects stored in the vault |
+| `npx @spardutti/sheltr delete` | Remove a project from the vault (requires typed confirmation) |
+
+### Push with a custom message
+
+```bash
+npx @spardutti/sheltr push -m "added stripe keys"
+```
+
+### Pull a specific project
+
+```bash
+npx @spardutti/sheltr pull my-other-app
+```
+
+### Check sync status
+
+```bash
+npx @spardutti/sheltr status
+```
+
+```
+ℹ Project: my-app
+
+  .env                           in sync
+  .env.local                     out of sync — run sheltr push or pull
+  .env.test                      local only
+```
+
+---
+
+## Requirements
+
+- **Node.js 18+**
+- **Git**
+- **git-crypt** — Sheltr will offer to install it for you during setup
+
+---
 
 ## Security
 
 | Layer | Detail |
 |-------|--------|
-| Encryption | AES-256 via git-crypt |
-| What's encrypted | All `.env` file contents |
-| What's visible | Project/folder names in the vault repo |
-| Key storage | Local file at `~/.sheltr/key` (permissions `0400`) |
-| Config | `~/.sheltr/config.json` (permissions `0600`, never uploaded) |
-| Repo exposure | If your vault repo leaks, `.env` contents remain encrypted blobs |
+| **Encryption** | AES-256 via git-crypt |
+| **What's encrypted** | All `.env` file contents |
+| **What's visible** | Project and folder names in the vault repo |
+| **Key storage** | Local file at `~/.sheltr/key` (permissions `0400`) |
+| **Config** | `~/.sheltr/config.json` (permissions `0600`, never uploaded) |
+| **If your vault leaks** | `.env` contents remain encrypted — unreadable without the key |
 
 ### Key Backup
 
-**Your git-crypt key is the only way to decrypt your vault.** Back it up to a password manager or other secure location. If you lose it, your encrypted `.env` files are unrecoverable.
+**Your git-crypt key is the only way to decrypt your vault.** If you lose it, your encrypted `.env` files are unrecoverable.
 
-The key is saved to `~/.sheltr/key` during setup.
+Back it up to a password manager or other secure location. The key is saved to `~/.sheltr/key` during setup.
 
-### Setting Up Another Machine
+---
+
+## Setting Up Another Machine
 
 1. Copy your key file to the new machine
-2. Run `sheltr setup`
-3. Choose "Import an existing key"
+2. Run `npx @spardutti/sheltr setup`
+3. Choose **"Import an existing key"**
 4. Point to the key file
+
+That's it. All your projects and `.env` files are available immediately.
+
+---
 
 ## Project Detection
 
-Sheltr walks up from your current directory looking for project root markers:
+Sheltr automatically detects your project by walking up from the current directory looking for:
 
-- `.git`
-- `package.json`
-- `pyproject.toml`
-- `Cargo.toml`
-- `go.mod`
-- `composer.json`
+`.git` · `package.json` · `pyproject.toml` · `Cargo.toml` · `go.mod` · `composer.json`
 
-If none are found, it asks whether to use the current folder name.
+Works with any language or framework. Monorepos with nested `.env` files are fully supported.
 
-## Configuration
+---
 
-Config is stored at `~/.sheltr/config.json`:
+## Why not Doppler / dotenv-vault / 1Password?
 
-```json
-{
-  "repoUrl": "git@github.com:you/env-vault.git",
-  "keyPath": "/home/you/.sheltr/key",
-  "vaultPath": "/home/you/.sheltr/vault"
-}
-```
+| | Sheltr | SaaS tools |
+|---|---|---|
+| **Where are secrets stored?** | Your own private Git repo | Their servers |
+| **Encryption** | AES-256, you hold the key | They hold the key |
+| **Cost** | Free forever | Free tier → paid |
+| **Vendor lock-in** | None — it's just Git | Full |
+| **Works offline** | Yes | No |
+| **Setup time** | 2 minutes | Account creation, team setup, integrations |
+
+---
 
 ## License
 
