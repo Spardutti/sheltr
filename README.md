@@ -10,9 +10,11 @@ Sheltr fixes this. It stores your `.env` files in a **private Git repo you own**
 
 Designed for **solo developers** and **personal use across multiple machines**. Can also be used by small, trusted teams.
 
+**Step 1:** Create an empty private repo on GitHub/GitLab — this is your encrypted vault.
+
+**Step 2:** Run sheltr:
+
 ```bash
-# 1. Create an empty private repo on GitHub/GitLab — this is your vault
-# 2. Run sheltr
 npx @spardutti/sheltr setup    # one-time setup (connects to your vault repo)
 npx @spardutti/sheltr push     # encrypt and store your .env files
 npx @spardutti/sheltr pull     # restore them anywhere
