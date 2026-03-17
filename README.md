@@ -8,7 +8,7 @@ Every developer has lost a `.env` file. A dead laptop, a fresh clone, a new mach
 
 Sheltr fixes this. It stores your `.env` files in a **private Git repo you own**, encrypted with **AES-256 via git-crypt**. Push from one machine, pull from another. No third-party servers. No subscriptions. Just your repo, your key, your secrets.
 
-Designed for **solo developers** and **personal use across multiple machines**. Can also be used by small, trusted teams.
+Designed for **solo developers** and **personal use across multiple machines**. Can also be used by small, trusted teams. Supports **multiple vaults** — keep personal and work secrets separate.
 
 **Step 1:** Create an empty private repo on GitHub/GitLab — this is your encrypted vault.
 
@@ -70,7 +70,7 @@ Go to GitHub or GitLab and create a new **empty private repo** (no README, no .g
 npx @spardutti/sheltr setup
 ```
 
-Paste your vault's **SSH URL** (e.g. `git@github.com:you/env-vault.git`), then generate or import an encryption key.
+Paste your vault's **SSH URL** (e.g. `git@github.com:you/env-vault.git`), give it a name (e.g. `personal`), then generate or import an encryption key.
 
 ### 3. Push your secrets
 
@@ -95,40 +95,107 @@ Your `.env` files are restored to the exact paths they came from. If a file alre
 
 | Command | What it does |
 |---------|-------------|
-| `npx @spardutti/sheltr setup` | One-time setup — connect vault repo, configure encryption key |
-| `npx @spardutti/sheltr push` | Encrypt and push `.env` files to the vault |
-| `npx @spardutti/sheltr pull` | Pull and restore `.env` files from the vault |
-| `npx @spardutti/sheltr status` | Compare local vs vault — shows `in sync`, `out of sync`, `local only`, `vault only` |
-| `npx @spardutti/sheltr list` | List all projects stored in the vault |
-| `npx @spardutti/sheltr delete` | Remove a project from the vault (requires typed confirmation) |
-| `npx @spardutti/sheltr key export` | Export your key as base64 (for password manager backup) |
-| `npx @spardutti/sheltr key import <base64>` | Restore your key from a base64 string |
+| `sheltr setup` | Connect a vault repo and configure encryption key |
+| `sheltr push` | Encrypt and push `.env` files to the vault |
+| `sheltr pull` | Pull and restore `.env` files from the vault |
+| `sheltr status` | Compare local vs vault — shows sync status |
+| `sheltr list` | List all projects across all vaults |
+| `sheltr delete` | Remove a project from the vault |
+| `sheltr move` | Move a project from one vault to another |
+| `sheltr vault list` | List all configured vaults |
+| `sheltr vault remove` | Remove a vault configuration |
+| `sheltr key export` | Export your key as base64 (for backup) |
+| `sheltr key import <base64>` | Restore your key from a base64 string |
 
 ### Push with a custom message
 
 ```bash
-npx @spardutti/sheltr push -m "added stripe keys"
+sheltr push -m "added stripe keys"
 ```
 
 ### Pull a specific project
 
 ```bash
-npx @spardutti/sheltr pull my-other-app
+sheltr pull my-other-app
+```
+
+### Target a specific vault
+
+All commands that operate on a vault accept `--vault <name>` to skip auto-detection:
+
+```bash
+sheltr push --vault work
+sheltr pull --vault personal
+sheltr status --vault work
+sheltr key export --vault personal
 ```
 
 ### Check sync status
 
 ```bash
-npx @spardutti/sheltr status
+sheltr status
 ```
 
 ```
+ℹ Using vault: personal
 ℹ Project: my-app
 
   .env                           in sync
   .env.local                     out of sync — run sheltr push or pull
   .env.test                      local only
 ```
+
+---
+
+## Multiple Vaults
+
+Sheltr supports multiple vaults — for example, a personal vault and a shared work vault, each with its own repo and encryption key.
+
+### Add a second vault
+
+```bash
+sheltr setup
+```
+
+If you already have a vault configured, Sheltr shows your existing vaults and asks if you want to add a new one. Give it a name (e.g. `work`), paste the repo URL, and set up the key.
+
+### How vault selection works
+
+Sheltr picks the right vault automatically:
+
+| Scenario | What happens |
+|----------|-------------|
+| Only 1 vault configured | Auto-selects it, no prompt |
+| Project exists in exactly 1 vault | Auto-selects that vault |
+| Project is new (first push) | Asks you to pick a vault |
+| `--vault <name>` flag used | Uses that vault directly |
+
+### List your vaults
+
+```bash
+sheltr vault list
+```
+
+```
+  personal  git@github.com:you/env-vault.git
+  work      git@github.com:company/team-vault.git
+```
+
+### Move a project between vaults
+
+```bash
+sheltr move my-app --from personal --to work
+```
+
+Or run `sheltr move` interactively — it walks you through selecting the source vault, project, and destination vault.
+
+### Remove a vault
+
+```bash
+sheltr vault remove work
+```
+
+Requires typed confirmation. Optionally deletes local files (with a key loss warning).
 
 ---
 
@@ -158,36 +225,37 @@ Windows users: install [WSL](https://learn.microsoft.com/en-us/windows/wsl/insta
 | **Encryption** | AES-256 via git-crypt |
 | **What's encrypted** | All `.env` file contents |
 | **What's visible** | Project and folder names in the vault repo |
-| **Key storage** | Local file at `~/.sheltr/key` (permissions `0400`) |
+| **Key storage** | Per-vault key at `~/.sheltr/vaults/<name>/key` (permissions `0400`) |
 | **Config** | `~/.sheltr/config.json` (permissions `0600`, never uploaded) |
 | **If your vault leaks** | `.env` contents remain encrypted — unreadable without the key |
 
 ### Key Backup
 
-**Your git-crypt key is the only way to decrypt your vault.** If you lose it, your encrypted `.env` files are unrecoverable.
+**Your git-crypt key is the only way to decrypt your vault.** If you lose it, your encrypted `.env` files are unrecoverable. Each vault has its own key.
 
 Export your key as a base64 string and save it in a password manager:
 
 ```bash
-npx @spardutti/sheltr key export
+sheltr key export                    # single vault
+sheltr key export --vault work       # specific vault
 ```
 
 To restore it on a new machine:
 
 ```bash
-npx @spardutti/sheltr key import <base64-string>
+sheltr key import <base64-string>
 ```
 
 ---
 
 ## Setting Up Another Machine
 
-1. Run `npx @spardutti/sheltr key import <base64-string>` (grab the string from your password manager)
-2. Run `npx @spardutti/sheltr setup`
+1. Run `sheltr key import <base64-string>` (grab the string from your password manager)
+2. Run `sheltr setup`
 3. Choose **"Import an existing key"**
-4. Point to `~/.sheltr/key`
+4. Point to `~/.sheltr/vaults/<name>/key`
 
-That's it. All your projects and `.env` files are available immediately.
+That's it. All your projects and `.env` files are available immediately. Repeat for each vault you need access to.
 
 ---
 
@@ -216,7 +284,7 @@ Works with any language or framework. Monorepos with nested `.env` files are ful
 
 ## Using Sheltr with a Team
 
-Sheltr can work for small, trusted teams. Teammates need **two things** to access the vault:
+Sheltr can work for small, trusted teams. Teammates need **two things** to access a vault:
 
 1. **Collaborator access** to the private vault repo on GitHub/GitLab
 2. **The encryption key** to decrypt `.env` contents
@@ -226,7 +294,7 @@ Without both, they can't do anything — repo access alone shows encrypted blobs
 **Adding a teammate:**
 1. Invite them as a collaborator on your vault repo (GitHub → Settings → Collaborators)
 2. Share the encryption key securely (password manager, in person, or encrypted message — never over Slack/email in plaintext)
-3. They run `npx @spardutti/sheltr key import <base64>` then `npx @spardutti/sheltr setup` and choose "Import an existing key"
+3. They run `sheltr key import <base64>` then `sheltr setup` and choose "Import an existing key"
 
 **Removing a teammate:**
 1. Remove them as a collaborator on the vault repo — they can no longer pull or push
@@ -234,9 +302,11 @@ Without both, they can't do anything — repo access alone shows encrypted blobs
 
 > This is no different from normal development. Any dev with project access already has `.env` files on their machine. Sheltr doesn't make revocation harder or easier — the real action is always rotating the secrets themselves.
 
+**With multiple vaults**, you can share a work vault with your team while keeping a personal vault private. Each vault has its own key, so sharing one doesn't expose the other.
+
 **Limitations:**
-- Single shared key — no per-user permissions
-- Everyone with access sees all projects in the vault
+- Single shared key per vault — no per-user permissions
+- Everyone with access sees all projects in that vault
 - No audit logs
 
 For teams that need access control, user revocation, or audit trails, use a dedicated secrets manager like Doppler or 1Password. Sheltr is built for simplicity and ownership, not enterprise access management.
