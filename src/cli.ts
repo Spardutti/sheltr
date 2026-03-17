@@ -8,6 +8,8 @@ import { registerListCommand } from "./commands/list.js";
 import { registerDeleteCommand } from "./commands/delete.js";
 import { registerStatusCommand } from "./commands/status.js";
 import { registerKeyCommand } from "./commands/key.js";
+import { registerVaultCommand } from "./commands/vault.js";
+import { registerMoveCommand } from "./commands/move.js";
 import { handleError } from "./utils/errors.js";
 
 const program = new Command();
@@ -24,6 +26,8 @@ registerListCommand(program);
 registerDeleteCommand(program);
 registerStatusCommand(program);
 registerKeyCommand(program);
+registerVaultCommand(program);
+registerMoveCommand(program);
 
 try {
   await program.parseAsync(process.argv);
