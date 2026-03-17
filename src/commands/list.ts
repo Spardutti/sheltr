@@ -6,7 +6,7 @@ import { readConfig } from "../core/config.js";
 import { detectProject } from "../core/project.js";
 import { listVaultProjects, listVaultFiles } from "../core/vault.js";
 import * as git from "../core/git.js";
-import { SheltrError, withErrorHandling } from "../utils/errors.js";
+import { withErrorHandling } from "../utils/errors.js";
 
 export function registerListCommand(program: Command): void {
   program
@@ -16,47 +16,60 @@ export function registerListCommand(program: Command): void {
       showIntro();
 
       const config = await readConfig();
-      const vaultPath = config.vaultPath;
 
-      if (!(await git.isVaultCloned(vaultPath))) {
-        throw new SheltrError("Vault not found. Run `sheltr setup` first.", "VAULT_NOT_FOUND");
-      }
-
-      if (await git.hasCommits(vaultPath)) {
-        await withSpinner({
-          start: "Syncing vault...",
-          stop: "Vault synced!",
-          task: () => git.pull(vaultPath),
-        });
-      }
-
-      const projects = await listVaultProjects(vaultPath);
-
-      if (projects.length === 0) {
-        log.info("No projects stored yet. Run `sheltr push` to get started.");
+      if (config.vaults.length === 0) {
+        log.info("No vaults configured. Run `sheltr setup` to get started.");
         showOutro();
         return;
       }
 
-      // Detect current project to highlight it in the list
+      // Detect current project to highlight it
       const cwd = process.cwd();
       const detected = await detectProject(cwd);
       const currentName = detected?.name ?? basename(cwd);
-      const inVault = projects.includes(currentName);
 
-      if (inVault) {
-        log.info(`Current project: ${pc.bold(currentName)} ${pc.green("(in vault)")}\n`);
-      } else {
-        log.info(`Current project: ${pc.bold(currentName)} ${pc.yellow("(not in vault)")}\n`);
+      let totalProjects = 0;
+
+      for (const vault of config.vaults) {
+        if (!(await git.isVaultCloned(vault.vaultPath))) {
+          log.warn(`Vault "${vault.name}" is not cloned. Run \`sheltr setup\` to fix.`);
+          continue;
+        }
+
+        if (await git.hasCommits(vault.vaultPath)) {
+          await withSpinner({
+            start: `Syncing ${vault.name}...`,
+            stop: `${vault.name} synced!`,
+            task: () => git.pull(vault.vaultPath),
+          });
+        }
+
+        const projects = await listVaultProjects(vault.vaultPath);
+        totalProjects += projects.length;
+
+        // Show vault header (only when multiple vaults)
+        if (config.vaults.length > 1) {
+          console.log(`\n  ${pc.bold(pc.cyan(vault.name))}  ${pc.dim(vault.repoUrl)}`);
+        }
+
+        if (projects.length === 0) {
+          console.log(`  ${pc.dim("  (empty)")}`);
+          continue;
+        }
+
+        for (const project of projects) {
+          const files = await listVaultFiles(vault.vaultPath, project);
+          const marker = project === currentName ? pc.green(" ←") : "";
+          const indent = config.vaults.length > 1 ? "    " : "  ";
+          console.log(`${indent}${pc.bold(project)} ${pc.dim(`(${files.length} file${files.length === 1 ? "" : "s"})`)}${marker}`);
+          for (const file of files) {
+            console.log(`${indent}  ${pc.dim(file)}`);
+          }
+        }
       }
 
-      for (const project of projects) {
-        const files = await listVaultFiles(vaultPath, project);
-        const marker = project === currentName ? pc.green(" ←") : "";
-        console.log(`  ${pc.bold(project)} ${pc.dim(`(${files.length} file${files.length === 1 ? "" : "s"})`)}${marker}`);
-        for (const file of files) {
-          console.log(`    ${pc.dim(file)}`);
-        }
+      if (totalProjects === 0) {
+        log.info("No projects stored yet. Run `sheltr push` to get started.");
       }
 
       console.log();
