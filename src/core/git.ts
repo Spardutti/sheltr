@@ -94,6 +94,15 @@ export async function rm(cwd: string, files: string[], recursive?: boolean): Pro
   await run("git", args, cwd);
 }
 
+export async function hasStagedChanges(cwd: string): Promise<boolean> {
+  try {
+    await run("git", ["diff", "--cached", "--quiet"], cwd);
+    return false; // exit 0 = no changes
+  } catch {
+    return true; // exit 1 = there are changes
+  }
+}
+
 export async function isVaultCloned(vaultPath: string): Promise<boolean> {
   try {
     await access(vaultPath);
