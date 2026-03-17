@@ -1,7 +1,8 @@
 import type { Command } from "commander";
 import { readFile, writeFile, chmod } from "node:fs/promises";
+import pc from "picocolors";
 import { showIntro, showOutro, askConfirm, log } from "../ui/index.js";
-import { readConfig } from "../core/config.js";
+import { resolveVault } from "../core/config.js";
 import { fileExists } from "../core/vault.js";
 import { SheltrError, withErrorHandling } from "../utils/errors.js";
 
@@ -13,12 +14,15 @@ export function registerKeyCommand(program: Command): void {
   key
     .command("export")
     .description("Export your key as base64 (for password manager backup)")
-    .action(withErrorHandling(async () => {
+    .option("--vault <name>", "Use a specific vault")
+    .action(withErrorHandling(async (opts: { vault?: string }) => {
       showIntro();
 
-      const config = await readConfig();
+      const vault = await resolveVault({ vaultName: opts.vault });
 
-      if (!(await fileExists(config.keyPath))) {
+      log.info(`Using vault: ${pc.bold(vault.name)}`);
+
+      if (!(await fileExists(vault.keyPath))) {
         throw new SheltrError("Key file not found. Run `sheltr setup` first.", "KEY_NOT_FOUND");
       }
 
@@ -33,7 +37,7 @@ export function registerKeyCommand(program: Command): void {
         return;
       }
 
-      const keyBuffer = await readFile(config.keyPath);
+      const keyBuffer = await readFile(vault.keyPath);
       const base64 = keyBuffer.toString("base64");
 
       log.info("Copy this base64 string to your password manager:\n");
@@ -48,10 +52,13 @@ export function registerKeyCommand(program: Command): void {
     .command("import")
     .description("Import a key from a base64 string")
     .argument("<base64>", "Base64-encoded key string")
-    .action(withErrorHandling(async (base64: string) => {
+    .option("--vault <name>", "Use a specific vault")
+    .action(withErrorHandling(async (base64: string, opts: { vault?: string }) => {
       showIntro();
 
-      const config = await readConfig();
+      const vault = await resolveVault({ vaultName: opts.vault });
+
+      log.info(`Using vault: ${pc.bold(vault.name)}`);
 
       // Validate base64 input
       const buffer = Buffer.from(base64, "base64");
@@ -60,18 +67,18 @@ export function registerKeyCommand(program: Command): void {
       }
 
       // Check if key already exists
-      if (await fileExists(config.keyPath)) {
+      if (await fileExists(vault.keyPath)) {
         throw new SheltrError(
           "Key file already exists. Delete it manually if you want to replace it:\n" +
-          `  rm ${config.keyPath}`,
+          `  rm ${vault.keyPath}`,
           "KEY_EXISTS",
         );
       }
 
-      await writeFile(config.keyPath, buffer);
-      await chmod(config.keyPath, 0o400);
+      await writeFile(vault.keyPath, buffer);
+      await chmod(vault.keyPath, 0o400);
 
-      log.success(`Key saved to ${config.keyPath}`);
+      log.success(`Key saved to ${vault.keyPath}`);
       showOutro();
     }));
 }

@@ -2,8 +2,9 @@ import type { Command } from "commander";
 import { basename } from "node:path";
 import { access, copyFile } from "node:fs/promises";
 import { join } from "node:path";
+import pc from "picocolors";
 import { showIntro, showOutro, askSelect, askMultiselect, askConfirm, withSpinner, log } from "../ui/index.js";
-import { readConfig } from "../core/config.js";
+import { resolveVault } from "../core/config.js";
 import { detectProject } from "../core/project.js";
 import { listVaultProjects, listVaultFiles, copyFilesFromVault } from "../core/vault.js";
 import * as git from "../core/git.js";
@@ -13,27 +14,11 @@ export function registerPullCommand(program: Command): void {
   program
     .command("pull [project]")
     .description("Pull and restore env files from the vault")
-    .action(withErrorHandling(async (projectArg?: string) => {
+    .option("--vault <name>", "Use a specific vault")
+    .action(withErrorHandling(async (projectArg: string | undefined, opts: { vault?: string }) => {
       showIntro();
 
-      const config = await readConfig();
-      const vaultPath = config.vaultPath;
-
-      // 1. Validate vault exists
-      if (!(await git.isVaultCloned(vaultPath))) {
-        throw new SheltrError("Vault not found. Run `sheltr setup` first.", "VAULT_NOT_FOUND");
-      }
-
-      // 2. Pull latest from vault
-      if (await git.hasCommits(vaultPath)) {
-        await withSpinner({
-          start: "Syncing vault...",
-          stop: "Vault synced!",
-          task: () => git.pull(vaultPath),
-        });
-      }
-
-      // 3. Resolve project name
+      // 1. Resolve project name first (needed for vault inference)
       const cwd = process.cwd();
       let projectName: string;
 
@@ -57,7 +42,27 @@ export function registerPullCommand(program: Command): void {
         }
       }
 
-      // 4. Check project exists in vault
+      // 2. Resolve vault (infers from project name)
+      const vault = await resolveVault({ vaultName: opts.vault, projectName });
+      const vaultPath = vault.vaultPath;
+
+      log.info(`Using vault: ${pc.bold(vault.name)}`);
+
+      // 3. Validate vault exists
+      if (!(await git.isVaultCloned(vaultPath))) {
+        throw new SheltrError("Vault not found. Run `sheltr setup` first.", "VAULT_NOT_FOUND");
+      }
+
+      // 4. Pull latest from vault
+      if (await git.hasCommits(vaultPath)) {
+        await withSpinner({
+          start: "Syncing vault...",
+          stop: "Vault synced!",
+          task: () => git.pull(vaultPath),
+        });
+      }
+
+      // 5. Check project exists in vault
       const vaultProjects = await listVaultProjects(vaultPath);
 
       if (!vaultProjects.includes(projectName)) {
@@ -72,7 +77,7 @@ export function registerPullCommand(program: Command): void {
         });
       }
 
-      // 5. List vault files for project
+      // 6. List vault files for project
       const vaultFiles = await listVaultFiles(vaultPath, projectName);
 
       if (vaultFiles.length === 0) {
@@ -81,14 +86,14 @@ export function registerPullCommand(program: Command): void {
         return;
       }
 
-      // 6. User picks files
+      // 7. User picks files
       const selected = await askMultiselect({
         message: "Select files to restore:",
         options: vaultFiles.map((f) => ({ value: f, label: f })),
         required: true,
       });
 
-      // 7. Conflict detection — auto-backup existing files, let user skip
+      // 8. Conflict detection — auto-backup existing files, let user skip
       const filesToRestore: string[] = [];
       const filesToBackup: string[] = [];
 
@@ -120,7 +125,7 @@ export function registerPullCommand(program: Command): void {
         return;
       }
 
-      // 8. Restore files
+      // 9. Restore files
       await withSpinner({
         start: `Restoring ${filesToRestore.length} file(s)...`,
         stop: "Files restored!",

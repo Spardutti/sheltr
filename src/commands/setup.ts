@@ -3,9 +3,12 @@ import pc from "picocolors";
 import { showIntro, showOutro, askText, askSelect, withSpinner, log } from "../ui/index.js";
 import {
   configExists,
+  readConfig,
   writeConfig,
-  getDefaultVaultPath,
-  getDefaultKeyPath,
+  getDefaultVaultPathForName,
+  getDefaultKeyPathForName,
+  ensureVaultDir,
+  type SheltrConfig,
 } from "../core/config.js";
 import { cloneRepo, isVaultCloned } from "../core/git.js";
 import {
@@ -25,40 +28,72 @@ export function registerSetupCommand(program: Command): void {
     .action(withErrorHandling(async () => {
       showIntro();
 
-      // Check for existing config
+      await ensureGitCryptInstalled();
+
+      let config: SheltrConfig = { vaults: [] };
+      let existingNames: string[] = [];
+
       if (await configExists()) {
-        const overwrite = await askConfirm({
-          message: "Sheltr is already configured. Do you want to reconfigure?",
-          initialValue: false,
-        });
-        if (!overwrite) {
-          showOutro("Keeping existing configuration.");
-          return;
+        config = await readConfig();
+        existingNames = config.vaults.map((v) => v.name);
+
+        if (config.vaults.length > 0) {
+          log.info("Existing vaults:");
+          for (const v of config.vaults) {
+            console.log(`  ${pc.bold(v.name)}  ${pc.dim(v.repoUrl)}`);
+          }
+          console.log();
+
+          const addNew = await askConfirm({
+            message: "Add a new vault?",
+          });
+          if (!addNew) {
+            showOutro("Keeping existing configuration.");
+            return;
+          }
         }
       }
 
-      // Check git-crypt is available
-      await ensureGitCryptInstalled();
+      // --- Onboarding explanation (only on first vault) ---
+      if (config.vaults.length === 0) {
+        console.log();
+        console.log(pc.bold("  How sheltr works:"));
+        console.log();
+        console.log(`  Sheltr stores your .env files in a ${pc.cyan("separate private Git repo")}`);
+        console.log(`  that acts as an encrypted vault. This is ${pc.bold("not")} your project repo —`);
+        console.log(`  it's a dedicated repo just for secrets.`);
+        console.log();
+        console.log(pc.dim("  Example:"));
+        console.log(pc.dim("    Your project  → github.com/you/my-app"));
+        console.log(pc.dim("    Your vault    → github.com/you/env-vault  (create this one)"));
+        console.log();
+        console.log(`  ${pc.dim("1.")} Create an ${pc.bold("empty private repo")} on GitHub/GitLab`);
+        console.log(`  ${pc.dim("2.")} Paste the ${pc.bold("SSH URL")} below (recommended)`);
+        console.log(`  ${pc.dim("3.")} Sheltr encrypts and pushes your .env files there`);
+        console.log();
+      }
 
-      // --- Onboarding explanation ---
-      console.log();
-      console.log(pc.bold("  How sheltr works:"));
-      console.log();
-      console.log(`  Sheltr stores your .env files in a ${pc.cyan("separate private Git repo")}`);
-      console.log(`  that acts as an encrypted vault. This is ${pc.bold("not")} your project repo —`);
-      console.log(`  it's a dedicated repo just for secrets.`);
-      console.log();
-      console.log(pc.dim("  Example:"));
-      console.log(pc.dim("    Your project  → github.com/you/my-app"));
-      console.log(pc.dim("    Your vault    → github.com/you/env-vault  (create this one)"));
-      console.log();
-      console.log(`  ${pc.dim("1.")} Create an ${pc.bold("empty private repo")} on GitHub/GitLab`);
-      console.log(`  ${pc.dim("2.")} Paste the ${pc.bold("SSH URL")} below (recommended)`);
-      console.log(`  ${pc.dim("3.")} Sheltr encrypts and pushes your .env files there`);
-      console.log();
+      // --- Step 1: Vault name ---
+      log.info(pc.dim("Step 1 of 3") + " — Vault name");
 
-      // --- Step 1: Repository ---
-      log.info(pc.dim("Step 1 of 2") + " — Vault repository");
+      const vaultName = await askText({
+        message: "Give this vault a name:",
+        placeholder: config.vaults.length === 0 ? "personal" : "work",
+        validate(value) {
+          const v = value.trim();
+          if (!v) return "Vault name is required.";
+          if (!/^[a-zA-Z0-9_-]+$/.test(v)) {
+            return "Use only letters, numbers, dashes, and underscores.";
+          }
+          if (existingNames.includes(v)) {
+            return `A vault named "${v}" already exists.`;
+          }
+        },
+      });
+
+      // --- Step 2: Repository ---
+      console.log();
+      log.info(pc.dim("Step 2 of 3") + " — Vault repository");
 
       const repoUrl = await askText({
         message: "Paste your vault repo SSH URL:",
@@ -80,7 +115,10 @@ export function registerSetupCommand(program: Command): void {
         },
       });
 
-      const vaultPath = getDefaultVaultPath();
+      // Create per-vault directory
+      await ensureVaultDir(vaultName);
+
+      const vaultPath = getDefaultVaultPathForName(vaultName);
 
       // Clone the repo
       const alreadyCloned = await isVaultCloned(vaultPath);
@@ -94,9 +132,9 @@ export function registerSetupCommand(program: Command): void {
         });
       }
 
-      // --- Step 2: Encryption key ---
+      // --- Step 3: Encryption key ---
       console.log();
-      log.info(pc.dim("Step 2 of 2") + " — Encryption key");
+      log.info(pc.dim("Step 3 of 3") + " — Encryption key");
 
       const keyMethod = await askSelect({
         message: "How would you like to configure your encryption key?",
@@ -106,7 +144,7 @@ export function registerSetupCommand(program: Command): void {
         ],
       });
 
-      const keyPath = getDefaultKeyPath();
+      const keyPath = getDefaultKeyPathForName(vaultName);
 
       if (keyMethod === "generate") {
         await withSpinner({
@@ -134,7 +172,6 @@ export function registerSetupCommand(program: Command): void {
           },
         });
 
-        // Expand ~ to home directory
         const resolvedSource = sourcePath.replace(/^~/, process.env.HOME ?? "");
 
         await withSpinner({
@@ -148,11 +185,14 @@ export function registerSetupCommand(program: Command): void {
       }
 
       // --- Save config ---
-      await writeConfig({
+      config.vaults.push({
+        name: vaultName,
         repoUrl,
         keyPath,
         vaultPath,
       });
+
+      await writeConfig(config);
 
       console.log();
       log.info(
@@ -161,7 +201,7 @@ export function registerSetupCommand(program: Command): void {
         pc.dim(" — only .env file contents are."),
       );
 
-      log.success("Configuration saved.");
+      log.success(`Vault "${vaultName}" configured.`);
       showOutro("Setup complete! Run `sheltr push` to sync your env files.");
     }));
 }

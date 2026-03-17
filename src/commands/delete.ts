@@ -1,7 +1,8 @@
 import type { Command } from "commander";
 import { basename } from "node:path";
+import pc from "picocolors";
 import { showIntro, showOutro, askText, askSelect, withSpinner, log } from "../ui/index.js";
-import { readConfig } from "../core/config.js";
+import { resolveVault } from "../core/config.js";
 import { detectProject } from "../core/project.js";
 import { listVaultProjects, listVaultFiles, removeVaultProject } from "../core/vault.js";
 import * as git from "../core/git.js";
@@ -12,11 +13,19 @@ export function registerDeleteCommand(program: Command): void {
     .command("delete")
     .description("Delete a stored project")
     .argument("[project]", "Project name to delete")
-    .action(withErrorHandling(async (projectArg?: string) => {
+    .option("--vault <name>", "Use a specific vault")
+    .action(withErrorHandling(async (projectArg: string | undefined, opts: { vault?: string }) => {
       showIntro();
 
-      const config = await readConfig();
-      const vaultPath = config.vaultPath;
+      // Detect project name early for vault inference
+      const cwd = process.cwd();
+      const detected = await detectProject(cwd);
+      const candidateName = projectArg ?? detected?.name ?? basename(cwd);
+
+      const vault = await resolveVault({ vaultName: opts.vault, projectName: candidateName });
+      const vaultPath = vault.vaultPath;
+
+      log.info(`Using vault: ${pc.bold(vault.name)}`);
 
       if (!(await git.isVaultCloned(vaultPath))) {
         throw new SheltrError("Vault not found. Run `sheltr setup` first.", "VAULT_NOT_FOUND");
@@ -48,11 +57,6 @@ export function registerDeleteCommand(program: Command): void {
         }
         projectName = projectArg;
       } else {
-        // Try to detect from cwd
-        const cwd = process.cwd();
-        const detected = await detectProject(cwd);
-        const candidateName = detected?.name ?? basename(cwd);
-
         if (projects.includes(candidateName)) {
           projectName = candidateName;
         } else {

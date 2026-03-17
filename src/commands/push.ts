@@ -1,7 +1,8 @@
 import type { Command } from "commander";
 import { basename } from "node:path";
+import pc from "picocolors";
 import { showIntro, showOutro, askMultiselect, askConfirm, withSpinner, log } from "../ui/index.js";
-import { readConfig } from "../core/config.js";
+import { resolveVault } from "../core/config.js";
 import { detectProject, scanEnvFiles } from "../core/project.js";
 import { ensureGitattributes, copyEnvFilesToVault } from "../core/vault.js";
 import * as git from "../core/git.js";
@@ -12,12 +13,11 @@ export function registerPushCommand(program: Command): void {
     .command("push")
     .description("Encrypt and push env files")
     .option("-m, --message <msg>", "Custom commit message")
-    .action(withErrorHandling(async (opts: { message?: string }) => {
+    .option("--vault <name>", "Use a specific vault")
+    .action(withErrorHandling(async (opts: { message?: string; vault?: string }) => {
       showIntro();
 
-      const config = await readConfig();
-
-      // 1. Detect project
+      // 1. Detect project first (needed for vault inference)
       const cwd = process.cwd();
       const project = await detectProject(cwd);
 
@@ -43,7 +43,12 @@ export function registerPushCommand(program: Command): void {
         projectRoot = cwd;
       }
 
-      // 2. Scan for .env files
+      // 2. Resolve vault (infers from project name)
+      const vault = await resolveVault({ vaultName: opts.vault, projectName });
+
+      log.info(`Using vault: ${pc.bold(vault.name)}`);
+
+      // 3. Scan for .env files
       const envFiles = await scanEnvFiles(projectRoot);
 
       if (envFiles.length === 0) {
@@ -52,16 +57,16 @@ export function registerPushCommand(program: Command): void {
         return;
       }
 
-      // 3. Let user pick which files
+      // 4. Let user pick which files
       const selected = await askMultiselect({
         message: "Select env files to push:",
         options: envFiles.map((f) => ({ value: f, label: f })),
         required: true,
       });
 
-      // 4. Confirm
+      // 5. Confirm
       const confirmed = await askConfirm({
-        message: `Push ${selected.length} file(s) to vault?`,
+        message: `Push ${selected.length} file(s) to vault "${vault.name}"?`,
       });
 
       if (!confirmed) {
@@ -69,12 +74,12 @@ export function registerPushCommand(program: Command): void {
         return;
       }
 
-      // 5. Sync to vault
-      await withSpinner({
+      // 6. Sync to vault
+      const result = await withSpinner({
         start: "Syncing to vault...",
-        stop: "Push complete!",
+        stop: "Done!",
         task: async () => {
-          const vaultPath = config.vaultPath;
+          const vaultPath = vault.vaultPath;
 
           // Pull latest (only if repo has commits)
           if (await git.hasCommits(vaultPath)) {
@@ -100,12 +105,21 @@ export function registerPushCommand(program: Command): void {
           // Stage, commit, push
           await git.add(vaultPath, filesToStage);
 
+          if (!(await git.hasStagedChanges(vaultPath))) {
+            return "no-changes";
+          }
+
           const commitMessage =
             opts.message ?? `sheltr: ${projectName} ${new Date().toISOString().slice(0, 19)}`;
           await git.commit(vaultPath, commitMessage);
           await git.push(vaultPath);
+          return "pushed";
         },
       });
+
+      if (result === "no-changes") {
+        log.info("Files are already up to date in the vault. Nothing to push.");
+      }
 
       showOutro();
     }));
