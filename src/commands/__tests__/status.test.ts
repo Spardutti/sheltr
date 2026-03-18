@@ -27,12 +27,12 @@ describe("status file comparison logic", () => {
   it("identifies_in_sync_when_contents_match", async () => {
     vol.fromJSON({
       "/project/.env": "SECRET=abc",
-      "/vault/my-app/.env": "SECRET=abc",
+      "/vault/_env/my-app/.env": "SECRET=abc",
     });
 
     const hasLocal = await fileExists("/project/.env");
-    const hasVault = await fileExists("/vault/my-app/.env");
-    const match = await filesMatch("/project/.env", "/vault/my-app/.env");
+    const hasVault = await fileExists("/vault/_env/my-app/.env");
+    const match = await filesMatch("/project/.env", "/vault/_env/my-app/.env");
 
     expect(determineStatus(hasLocal, hasVault, match)).toBe("in-sync");
   });
@@ -40,12 +40,12 @@ describe("status file comparison logic", () => {
   it("identifies_modified_when_contents_differ", async () => {
     vol.fromJSON({
       "/project/.env": "SECRET=new",
-      "/vault/my-app/.env": "SECRET=old",
+      "/vault/_env/my-app/.env": "SECRET=old",
     });
 
     const hasLocal = await fileExists("/project/.env");
-    const hasVault = await fileExists("/vault/my-app/.env");
-    const match = await filesMatch("/project/.env", "/vault/my-app/.env");
+    const hasVault = await fileExists("/vault/_env/my-app/.env");
+    const match = await filesMatch("/project/.env", "/vault/_env/my-app/.env");
 
     expect(determineStatus(hasLocal, hasVault, match)).toBe("out-of-sync");
   });
@@ -54,16 +54,16 @@ describe("status file comparison logic", () => {
     vol.fromJSON({ "/project/.env": "SECRET=abc" });
 
     const hasLocal = await fileExists("/project/.env");
-    const hasVault = await fileExists("/vault/my-app/.env");
+    const hasVault = await fileExists("/vault/_env/my-app/.env");
 
     expect(determineStatus(hasLocal, hasVault, false)).toBe("local-only");
   });
 
   it("identifies_vault_only_when_not_local", async () => {
-    vol.fromJSON({ "/vault/my-app/.env": "SECRET=abc" });
+    vol.fromJSON({ "/vault/_env/my-app/.env": "SECRET=abc" });
 
     const hasLocal = await fileExists("/project/.env");
-    const hasVault = await fileExists("/vault/my-app/.env");
+    const hasVault = await fileExists("/vault/_env/my-app/.env");
 
     expect(determineStatus(hasLocal, hasVault, false)).toBe("vault-only");
   });

@@ -6,7 +6,7 @@ import pc from "picocolors";
 import { showIntro, showOutro, askSelect, askMultiselect, askConfirm, withSpinner, log } from "../ui/index.js";
 import { resolveVault } from "../core/config.js";
 import { detectProject } from "../core/project.js";
-import { listVaultProjects, listVaultFiles, copyFilesFromVault } from "../core/vault.js";
+import { listVaultProjects, listVaultFiles, copyFilesFromVault, detectVaultLayout } from "../core/vault.js";
 import * as git from "../core/git.js";
 import { SheltrError, withErrorHandling } from "../utils/errors.js";
 
@@ -60,6 +60,12 @@ export function registerPullCommand(program: Command): void {
           stop: "Vault synced!",
           task: () => git.pull(vaultPath),
         });
+      }
+
+      // Check for legacy layout — allow pull but warn
+      const layout = await detectVaultLayout(vaultPath);
+      if (layout === "legacy") {
+        log.warn("Your vault uses the old layout. Run 'sheltr migrate' to update.");
       }
 
       // 5. Check project exists in vault

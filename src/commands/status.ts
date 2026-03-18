@@ -5,7 +5,7 @@ import { showIntro, showOutro, log } from "../ui/index.js";
 import { resolveVault } from "../core/config.js";
 import { detectProject } from "../core/project.js";
 import { scanEnvFiles } from "../core/project.js";
-import { listVaultProjects, listVaultFiles, fileExists, filesMatch } from "../core/vault.js";
+import { listVaultProjects, listVaultFiles, fileExists, filesMatch, detectVaultLayout, getVaultFilePath } from "../core/vault.js";
 import * as git from "../core/git.js";
 import { SheltrError, withErrorHandling } from "../utils/errors.js";
 
@@ -56,6 +56,9 @@ export function registerStatusCommand(program: Command): void {
       const vaultProjects = await listVaultProjects(vaultPath);
       const projectInVault = vaultProjects.includes(projectName);
 
+      // Detect layout for vault file path resolution
+      const layout = await detectVaultLayout(vaultPath);
+
       // Gather files from both sides
       const localFiles = await scanEnvFiles(projectRoot);
       const vaultFiles = projectInVault ? await listVaultFiles(vaultPath, projectName) : [];
@@ -73,7 +76,7 @@ export function registerStatusCommand(program: Command): void {
 
       for (const file of allFiles) {
         const localPath = join(projectRoot, file);
-        const vaultFilePath = join(vaultPath, projectName, file);
+        const vaultFilePath = getVaultFilePath(vaultPath, projectName, file, layout);
 
         const hasLocal = await fileExists(localPath);
         const hasVault = await fileExists(vaultFilePath);

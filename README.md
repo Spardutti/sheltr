@@ -46,12 +46,12 @@ Then just use `sheltr push`, `sheltr pull`, etc.
 ```
 your-project/                         your-vault-repo/ (private, encrypted)
 │                                     │
-├── .env             ── push ──►      ├── my-app/
-├── .env.local       ◄── pull ──      │   ├── .env          (AES-256 encrypted)
-│                                     │   └── .env.local    (AES-256 encrypted)
-├── frontend/                         │
-│   └── .env         ── push ──►      ├── my-app/frontend/
-│                                     │   └── .env          (AES-256 encrypted)
+├── .env             ── push ──►      ├── _env/
+├── .env.local       ◄── pull ──      │   ├── my-app/
+│                                     │   │   ├── .env          (AES-256 encrypted)
+├── frontend/                         │   │   └── .env.local    (AES-256 encrypted)
+│   └── .env         ── push ──►      │   └── my-app/frontend/
+│                                     │       └── .env          (AES-256 encrypted)
 └── src/                              │
     └── index.ts                      └── .gitattributes
 ```
@@ -109,6 +109,7 @@ Your `.env` files are restored to the exact paths they came from. If a file alre
 | `sheltr list` | List all projects across all vaults |
 | `sheltr delete` | Remove a project from the vault |
 | `sheltr move` | Move a project from one vault to another |
+| `sheltr migrate` | Migrate vault(s) from legacy layout to `_env/` layout |
 | `sheltr vault list` | List all configured vaults |
 | `sheltr vault remove` | Remove a vault configuration |
 | `sheltr key export` | Export your key as base64 (for backup) |
@@ -203,6 +204,22 @@ sheltr vault remove work
 ```
 
 Requires typed confirmation. Optionally deletes local files (with a key loss warning).
+
+---
+
+## Upgrading from v0.3.x
+
+In v0.4.0, Sheltr changed the vault layout. Env files are now stored under an `_env/` prefix inside the vault repo (e.g. `_env/my-app/.env` instead of `my-app/.env`). This keeps the vault organized for future categories.
+
+If you have an existing vault, run:
+
+```bash
+sheltr migrate
+```
+
+This moves all projects into `_env/`, updates `.gitattributes`, and pushes. Encryption is preserved throughout.
+
+Until you migrate, `sheltr push` will block with a warning. `sheltr pull` still works on legacy vaults.
 
 ---
 

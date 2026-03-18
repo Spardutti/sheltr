@@ -13,6 +13,12 @@ import {
   fileExists,
   filesMatch,
   removeVaultProject,
+  detectVaultLayout,
+  getProjectDir,
+  getVaultFilePath,
+  getProjectDirRelative,
+  migrateVaultLayout,
+  ENV_PREFIX,
 } from "../vault.js";
 
 beforeEach(() => {
@@ -20,19 +26,19 @@ beforeEach(() => {
 });
 
 describe("ensureGitattributes", () => {
-  it("creates_gitattributes_when_missing", async () => {
+  it("creates_gitattributes_with_modern_rule_when_missing", async () => {
     vol.mkdirSync("/vault", { recursive: true });
 
     const created = await ensureGitattributes("/vault");
 
     expect(created).toBe(true);
     const content = vol.readFileSync("/vault/.gitattributes", "utf-8");
-    expect(content).toContain(".env* filter=git-crypt diff=git-crypt");
+    expect(content).toContain("_env/**/.env* filter=git-crypt diff=git-crypt");
   });
 
-  it("skips_when_rule_already_exists", async () => {
+  it("skips_when_modern_rule_already_exists", async () => {
     vol.fromJSON(
-      { ".gitattributes": ".env* filter=git-crypt diff=git-crypt\n" },
+      { ".gitattributes": "_env/**/.env* filter=git-crypt diff=git-crypt\n" },
       "/vault",
     );
 
@@ -41,7 +47,7 @@ describe("ensureGitattributes", () => {
     expect(created).toBe(false);
   });
 
-  it("appends_rule_to_existing_gitattributes", async () => {
+  it("appends_modern_rule_to_existing_gitattributes", async () => {
     vol.fromJSON(
       { ".gitattributes": "*.txt text\n" },
       "/vault",
@@ -52,12 +58,81 @@ describe("ensureGitattributes", () => {
     expect(created).toBe(true);
     const content = vol.readFileSync("/vault/.gitattributes", "utf-8") as string;
     expect(content).toContain("*.txt text");
-    expect(content).toContain(".env* filter=git-crypt diff=git-crypt");
+    expect(content).toContain("_env/**/.env* filter=git-crypt diff=git-crypt");
+  });
+});
+
+describe("detectVaultLayout", () => {
+  it("returns_modern_when_env_prefix_dir_has_contents", async () => {
+    vol.fromJSON(
+      {
+        "_env/my-app/.env": "SECRET",
+        ".git/config": "",
+      },
+      "/vault",
+    );
+
+    expect(await detectVaultLayout("/vault")).toBe("modern");
+  });
+
+  it("returns_legacy_when_projects_at_root", async () => {
+    vol.fromJSON(
+      {
+        "my-app/.env": "SECRET",
+        ".git/config": "",
+      },
+      "/vault",
+    );
+
+    expect(await detectVaultLayout("/vault")).toBe("legacy");
+  });
+
+  it("returns_modern_for_empty_vault", async () => {
+    vol.fromJSON(
+      { ".git/config": "" },
+      "/vault",
+    );
+
+    expect(await detectVaultLayout("/vault")).toBe("modern");
+  });
+});
+
+describe("getProjectDir", () => {
+  it("returns_env_prefixed_path_for_modern_layout", () => {
+    expect(getProjectDir("/vault", "my-app", "modern")).toBe("/vault/_env/my-app");
+  });
+
+  it("returns_root_path_for_legacy_layout", () => {
+    expect(getProjectDir("/vault", "my-app", "legacy")).toBe("/vault/my-app");
+  });
+
+  it("defaults_to_modern_layout", () => {
+    expect(getProjectDir("/vault", "my-app")).toBe("/vault/_env/my-app");
+  });
+});
+
+describe("getVaultFilePath", () => {
+  it("returns_full_path_for_modern_layout", () => {
+    expect(getVaultFilePath("/vault", "my-app", ".env", "modern")).toBe("/vault/_env/my-app/.env");
+  });
+
+  it("returns_full_path_for_legacy_layout", () => {
+    expect(getVaultFilePath("/vault", "my-app", ".env", "legacy")).toBe("/vault/my-app/.env");
+  });
+});
+
+describe("getProjectDirRelative", () => {
+  it("returns_env_prefixed_relative_for_modern", () => {
+    expect(getProjectDirRelative("my-app", "modern")).toBe("_env/my-app");
+  });
+
+  it("returns_project_name_for_legacy", () => {
+    expect(getProjectDirRelative("my-app", "legacy")).toBe("my-app");
   });
 });
 
 describe("copyEnvFilesToVault", () => {
-  it("copies_files_to_vault_project_directory", async () => {
+  it("copies_files_to_vault_under_env_prefix", async () => {
     vol.fromJSON(
       {
         ".env": "DUMMY_CONTENT",
@@ -74,14 +149,29 @@ describe("copyEnvFilesToVault", () => {
       [".env", "config/.env.local"],
     );
 
-    expect(paths).toEqual(["my-app/.env", "my-app/config/.env.local"]);
-    expect(vol.existsSync("/vault/my-app/.env")).toBe(true);
-    expect(vol.existsSync("/vault/my-app/config/.env.local")).toBe(true);
+    expect(paths).toEqual(["_env/my-app/.env", "_env/my-app/config/.env.local"]);
+    expect(vol.existsSync("/vault/_env/my-app/.env")).toBe(true);
+    expect(vol.existsSync("/vault/_env/my-app/config/.env.local")).toBe(true);
   });
 });
 
 describe("listVaultProjects", () => {
-  it("returns_sorted_project_directories_excluding_git", async () => {
+  it("returns_projects_from_env_prefix_for_modern_layout", async () => {
+    vol.fromJSON(
+      {
+        ".git/config": "",
+        "_env/beta/.env": "",
+        "_env/alpha/.env": "",
+      },
+      "/vault",
+    );
+
+    const projects = await listVaultProjects("/vault");
+
+    expect(projects).toEqual(["alpha", "beta"]);
+  });
+
+  it("returns_projects_from_root_for_legacy_layout", async () => {
     vol.fromJSON(
       {
         ".git/config": "",
@@ -112,14 +202,15 @@ describe("listVaultProjects", () => {
 });
 
 describe("listVaultFiles", () => {
-  it("returns_sorted_env_files_recursively", async () => {
+  it("returns_sorted_env_files_from_modern_layout", async () => {
     vol.fromJSON(
       {
-        ".env": "a",
-        ".env.local": "b",
-        "sub/.env.prod": "c",
+        "_env/my-app/.env": "a",
+        "_env/my-app/.env.local": "b",
+        "_env/my-app/sub/.env.prod": "c",
+        ".git/config": "",
       },
-      "/vault/my-app",
+      "/vault",
     );
 
     const files = await listVaultFiles("/vault", "my-app");
@@ -127,8 +218,29 @@ describe("listVaultFiles", () => {
     expect(files).toEqual([".env", ".env.local", "sub/.env.prod"]);
   });
 
+  it("returns_sorted_env_files_from_legacy_layout", async () => {
+    vol.fromJSON(
+      {
+        "my-app/.env": "a",
+        "my-app/.env.local": "b",
+        ".git/config": "",
+      },
+      "/vault",
+    );
+
+    const files = await listVaultFiles("/vault", "my-app");
+
+    expect(files).toEqual([".env", ".env.local"]);
+  });
+
   it("returns_empty_when_no_env_files", async () => {
-    vol.fromJSON({ "readme.md": "hi" }, "/vault/my-app");
+    vol.fromJSON(
+      {
+        "_env/my-app/readme.md": "hi",
+        ".git/config": "",
+      },
+      "/vault",
+    );
 
     const files = await listVaultFiles("/vault", "my-app");
 
@@ -137,10 +249,14 @@ describe("listVaultFiles", () => {
 });
 
 describe("copyFilesFromVault", () => {
-  it("copies_files_from_vault_to_project", async () => {
+  it("copies_files_from_modern_vault_to_project", async () => {
     vol.fromJSON(
-      { ".env": "VAULT_DATA", "sub/.env.local": "VAULT_LOCAL" },
-      "/vault/my-app",
+      {
+        "_env/my-app/.env": "VAULT_DATA",
+        "_env/my-app/sub/.env.local": "VAULT_LOCAL",
+        ".git/config": "",
+      },
+      "/vault",
     );
     vol.mkdirSync("/project", { recursive: true });
 
@@ -148,6 +264,21 @@ describe("copyFilesFromVault", () => {
 
     expect(vol.existsSync("/project/.env")).toBe(true);
     expect(vol.existsSync("/project/sub/.env.local")).toBe(true);
+  });
+
+  it("copies_files_from_legacy_vault_to_project", async () => {
+    vol.fromJSON(
+      {
+        "my-app/.env": "VAULT_DATA",
+        ".git/config": "",
+      },
+      "/vault",
+    );
+    vol.mkdirSync("/project", { recursive: true });
+
+    await copyFilesFromVault("/vault", "my-app", "/project", [".env"]);
+
+    expect(vol.existsSync("/project/.env")).toBe(true);
   });
 });
 
@@ -193,11 +324,26 @@ describe("filesMatch", () => {
 });
 
 describe("removeVaultProject", () => {
-  it("removes_project_directory_and_all_contents", async () => {
+  it("removes_project_from_modern_layout", async () => {
+    vol.fromJSON(
+      {
+        "_env/my-app/.env": "SECRET",
+        "_env/other-app/.env": "KEEP",
+        ".git/config": "",
+      },
+      "/vault",
+    );
+
+    await removeVaultProject("/vault", "my-app");
+
+    expect(vol.existsSync("/vault/_env/my-app")).toBe(false);
+    expect(vol.existsSync("/vault/_env/other-app/.env")).toBe(true);
+  });
+
+  it("removes_project_from_legacy_layout", async () => {
     vol.fromJSON(
       {
         "my-app/.env": "SECRET",
-        "my-app/sub/.env.local": "LOCAL",
         "other-app/.env": "KEEP",
       },
       "/vault",
@@ -213,5 +359,58 @@ describe("removeVaultProject", () => {
     vol.fromJSON({ ".git/config": "" }, "/vault");
 
     await expect(removeVaultProject("/vault", "nonexistent")).resolves.toBeUndefined();
+  });
+});
+
+describe("migrateVaultLayout", () => {
+  it("moves_projects_from_root_to_env_prefix", async () => {
+    vol.fromJSON(
+      {
+        ".git/config": "",
+        ".gitattributes": ".env* filter=git-crypt diff=git-crypt\n",
+        "my-app/.env": "SECRET",
+        "other-app/.env": "OTHER",
+      },
+      "/vault",
+    );
+
+    const result = await migrateVaultLayout("/vault");
+
+    expect(result.migrated).toEqual(["my-app", "other-app"]);
+    expect(vol.existsSync("/vault/_env/my-app/.env")).toBe(true);
+    expect(vol.existsSync("/vault/_env/other-app/.env")).toBe(true);
+    expect(vol.existsSync("/vault/my-app")).toBe(false);
+    expect(vol.existsSync("/vault/other-app")).toBe(false);
+  });
+
+  it("removes_legacy_rule_and_keeps_modern_rule", async () => {
+    vol.fromJSON(
+      {
+        ".git/config": "",
+        ".gitattributes": ".env* filter=git-crypt diff=git-crypt\n",
+        "my-app/.env": "SECRET",
+      },
+      "/vault",
+    );
+
+    await migrateVaultLayout("/vault");
+
+    const content = vol.readFileSync("/vault/.gitattributes", "utf-8") as string;
+    expect(content).toContain("_env/**/.env* filter=git-crypt diff=git-crypt");
+    expect(content).not.toContain("\n.env* filter=git-crypt diff=git-crypt");
+  });
+
+  it("returns_empty_array_when_already_modern", async () => {
+    vol.fromJSON(
+      {
+        ".git/config": "",
+        "_env/my-app/.env": "SECRET",
+      },
+      "/vault",
+    );
+
+    const result = await migrateVaultLayout("/vault");
+
+    expect(result.migrated).toEqual([]);
   });
 });
