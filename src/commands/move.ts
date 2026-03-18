@@ -9,6 +9,9 @@ import {
   copyEnvFilesToVault,
   ensureGitattributes,
   removeVaultProject,
+  detectVaultLayout,
+  getProjectDir,
+  getProjectDirRelative,
 } from "../core/vault.js";
 import * as git from "../core/git.js";
 import { SheltrError, withErrorHandling } from "../utils/errors.js";
@@ -141,7 +144,8 @@ export function registerMoveCommand(program: Command): void {
           }
 
           // Copy files from source vault to destination vault
-          const sourceProjectDir = join(sourceVault.vaultPath, projectName);
+          const sourceLayout = await detectVaultLayout(sourceVault.vaultPath);
+          const sourceProjectDir = getProjectDir(sourceVault.vaultPath, projectName, sourceLayout);
 
           const copiedPaths = await copyEnvFilesToVault(
             sourceProjectDir,
@@ -163,7 +167,8 @@ export function registerMoveCommand(program: Command): void {
           await git.push(destVault.vaultPath);
 
           // Remove from source
-          await git.rm(sourceVault.vaultPath, [projectName], true);
+          const rmPath = getProjectDirRelative(projectName, sourceLayout);
+          await git.rm(sourceVault.vaultPath, [rmPath], true);
           await removeVaultProject(sourceVault.vaultPath, projectName);
           await git.commit(sourceVault.vaultPath, `sheltr: move ${projectName} to ${destName}`);
           await git.push(sourceVault.vaultPath);

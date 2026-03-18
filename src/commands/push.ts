@@ -4,7 +4,7 @@ import pc from "picocolors";
 import { showIntro, showOutro, askMultiselect, askConfirm, withSpinner, log } from "../ui/index.js";
 import { resolveVault } from "../core/config.js";
 import { detectProject, scanEnvFiles } from "../core/project.js";
-import { ensureGitattributes, copyEnvFilesToVault } from "../core/vault.js";
+import { ensureGitattributes, copyEnvFilesToVault, detectVaultLayout } from "../core/vault.js";
 import * as git from "../core/git.js";
 import { withErrorHandling } from "../utils/errors.js";
 
@@ -47,6 +47,14 @@ export function registerPushCommand(program: Command): void {
       const vault = await resolveVault({ vaultName: opts.vault, projectName });
 
       log.info(`Using vault: ${pc.bold(vault.name)}`);
+
+      // Check for legacy layout
+      const layout = await detectVaultLayout(vault.vaultPath);
+      if (layout === "legacy") {
+        log.error("Your vault uses the old layout. Run 'sheltr migrate' to update.");
+        showOutro("Push cancelled.");
+        return;
+      }
 
       // 3. Scan for .env files
       const envFiles = await scanEnvFiles(projectRoot);

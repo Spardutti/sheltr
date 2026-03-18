@@ -4,7 +4,7 @@ import pc from "picocolors";
 import { showIntro, showOutro, askText, askSelect, withSpinner, log } from "../ui/index.js";
 import { resolveVault } from "../core/config.js";
 import { detectProject } from "../core/project.js";
-import { listVaultProjects, listVaultFiles, removeVaultProject } from "../core/vault.js";
+import { listVaultProjects, listVaultFiles, removeVaultProject, detectVaultLayout, getProjectDirRelative } from "../core/vault.js";
 import * as git from "../core/git.js";
 import { SheltrError, withErrorHandling } from "../utils/errors.js";
 
@@ -91,7 +91,9 @@ export function registerDeleteCommand(program: Command): void {
         start: "Deleting from vault...",
         stop: "Project deleted!",
         task: async () => {
-          await git.rm(vaultPath, [projectName], true);
+          const layout = await detectVaultLayout(vaultPath);
+          const rmPath = getProjectDirRelative(projectName, layout);
+          await git.rm(vaultPath, [rmPath], true);
           await removeVaultProject(vaultPath, projectName);
           await git.commit(vaultPath, `sheltr: delete ${projectName}`);
           await git.push(vaultPath);
