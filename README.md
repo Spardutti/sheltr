@@ -1,3 +1,5 @@
+<div align="center">
+
 ```
   ███████╗██╗  ██╗███████╗██╗  ████████╗██████╗
   ██╔════╝██║  ██║██╔════╝██║  ╚══██╔══╝██╔══██╗
@@ -9,17 +11,21 @@
 
 **Your `.env` files, encrypted and git-synced. No SaaS, no secrets lost.**
 
+[![npm version](https://img.shields.io/npm/v/@spardutti/sheltr?style=flat-square&color=blue)](https://www.npmjs.com/package/@spardutti/sheltr)
+[![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![node](https://img.shields.io/badge/node-18%2B-brightgreen?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+
+[Quick Start](#quick-start) · [Commands](#commands) · [Multiple Vaults](#multiple-vaults) · [Security](#security) · [Team Usage](#using-sheltr-with-a-team)
+
+</div>
+
 ---
 
-Every developer has lost a `.env` file. A dead laptop, a fresh clone, a new machine — and suddenly your project won't start because the secrets are gone. You ping a teammate, dig through Slack, or worse — you just don't have them anymore.
+Every developer has lost a `.env` file. A dead laptop, a fresh clone, a new machine — and suddenly your project won't start because the secrets are gone.
 
-Sheltr fixes this. It stores your `.env` files in a **private Git repo you own**, encrypted with **AES-256 via git-crypt**. Push from one machine, pull from another. No third-party servers. No subscriptions. Just your repo, your key, your secrets.
+Sheltr stores your `.env` files in a **private Git repo you own**, encrypted with **AES-256 via git-crypt**. Push from one machine, pull from another. No third-party servers. No subscriptions. Just your repo, your key, your secrets.
 
 Designed for **solo developers** and **personal use across multiple machines**. Can also be used by small, trusted teams. Supports **multiple vaults** — keep personal and work secrets separate.
-
-**Step 1:** Create an empty private repo on GitHub/GitLab — this is your encrypted vault.
-
-**Step 2:** Run sheltr:
 
 ```bash
 npx @spardutti/sheltr setup    # one-time setup (connects to your vault repo)
@@ -27,17 +33,11 @@ npx @spardutti/sheltr push     # encrypt and store your .env files
 npx @spardutti/sheltr pull     # restore them anywhere
 ```
 
-**Tip:** add an alias to skip typing the full package name every time:
-
-```bash
-# bash
-echo 'alias sheltr="npx @spardutti/sheltr"' >> ~/.bashrc
-
-# zsh
-echo 'alias sheltr="npx @spardutti/sheltr"' >> ~/.zshrc
-```
-
-Then just use `sheltr push`, `sheltr pull`, etc.
+> [!TIP]
+> Add an alias to skip typing the full package name:
+> ```bash
+> echo 'alias sheltr="npx @spardutti/sheltr"' >> ~/.bashrc   # or ~/.zshrc
+> ```
 
 ---
 
@@ -115,6 +115,9 @@ Your `.env` files are restored to the exact paths they came from. If a file alre
 | `sheltr key export` | Export your key as base64 (for backup) |
 | `sheltr key import <base64>` | Restore your key from a base64 string |
 
+<details>
+<summary><b>Command examples</b></summary>
+
 ### Push with a custom message
 
 ```bash
@@ -153,6 +156,8 @@ sheltr status
   .env.test                      local only
 ```
 
+</details>
+
 ---
 
 ## Multiple Vaults
@@ -169,14 +174,15 @@ If you already have a vault configured, Sheltr shows your existing vaults and as
 
 ### How vault selection works
 
-Sheltr picks the right vault automatically:
-
 | Scenario | What happens |
 |----------|-------------|
 | Only 1 vault configured | Auto-selects it, no prompt |
 | Project exists in exactly 1 vault | Auto-selects that vault |
 | Project is new (first push) | Asks you to pick a vault |
 | `--vault <name>` flag used | Uses that vault directly |
+
+<details>
+<summary><b>Vault management examples</b></summary>
 
 ### List your vaults
 
@@ -205,40 +211,7 @@ sheltr vault remove work
 
 Requires typed confirmation. Optionally deletes local files (with a key loss warning).
 
----
-
-## Upgrading from v0.3.x
-
-In v0.4.0, Sheltr changed the vault layout. Env files are now stored under an `_env/` prefix inside the vault repo (e.g. `_env/my-app/.env` instead of `my-app/.env`). This keeps the vault organized for future categories.
-
-If you have an existing vault, run:
-
-```bash
-sheltr migrate
-```
-
-This moves all projects into `_env/`, updates `.gitattributes`, and pushes. Encryption is preserved throughout.
-
-Until you migrate, `sheltr push` will block with a warning. `sheltr pull` still works on legacy vaults.
-
----
-
-## Requirements
-
-- **Node.js 18+**
-- **Git**
-- **git-crypt** — Sheltr will offer to install it for you during setup
-
-### Platform Support
-
-| Platform | Supported |
-|----------|-----------|
-| **Linux** | Yes |
-| **macOS** | Yes |
-| **Windows (WSL)** | Yes |
-| **Windows native** | No — git-crypt has no official Windows support |
-
-Windows users: install [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) and run Sheltr from there.
+</details>
 
 ---
 
@@ -253,18 +226,15 @@ Windows users: install [WSL](https://learn.microsoft.com/en-us/windows/wsl/insta
 | **Config** | `~/.sheltr/config.json` (permissions `0600`, never uploaded) |
 | **If your vault leaks** | `.env` contents remain encrypted — unreadable without the key |
 
-### Key Backup
-
-**Your git-crypt key is the only way to decrypt your vault.** If you lose it, your encrypted `.env` files are unrecoverable. Each vault has its own key.
-
-Export your key as a base64 string and save it in a password manager:
+> [!WARNING]
+> **Your git-crypt key is the only way to decrypt your vault.** If you lose it, your encrypted `.env` files are unrecoverable. Each vault has its own key. Export it and save it in a password manager.
 
 ```bash
 sheltr key export                    # single vault
 sheltr key export --vault work       # specific vault
 ```
 
-To restore it on a new machine:
+To restore on a new machine:
 
 ```bash
 sheltr key import <base64-string>
@@ -280,6 +250,23 @@ sheltr key import <base64-string>
 4. Point to `~/.sheltr/vaults/<name>/key`
 
 That's it. All your projects and `.env` files are available immediately. Repeat for each vault you need access to.
+
+---
+
+## Requirements
+
+| Requirement | |
+|---|---|
+| **Node.js** | 18+ |
+| **Git** | any recent version |
+| **git-crypt** | installed automatically during setup |
+
+| Platform | Supported |
+|----------|-----------|
+| **Linux** | Yes |
+| **macOS** | Yes |
+| **Windows (WSL)** | Yes |
+| **Windows native** | No — use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) |
 
 ---
 
@@ -306,7 +293,8 @@ Works with any language or framework. Monorepos with nested `.env` files are ful
 
 ---
 
-## Using Sheltr with a Team
+<details>
+<summary><b>Using Sheltr with a Team</b></summary>
 
 Sheltr can work for small, trusted teams. Teammates need **two things** to access a vault:
 
@@ -334,6 +322,25 @@ Without both, they can't do anything — repo access alone shows encrypted blobs
 - No audit logs
 
 For teams that need access control, user revocation, or audit trails, use a dedicated secrets manager like Doppler or 1Password. Sheltr is built for simplicity and ownership, not enterprise access management.
+
+</details>
+
+<details>
+<summary><b>Upgrading from v0.3.x</b></summary>
+
+In v0.4.0, Sheltr changed the vault layout. Env files are now stored under an `_env/` prefix inside the vault repo (e.g. `_env/my-app/.env` instead of `my-app/.env`). This keeps the vault organized for future categories.
+
+If you have an existing vault, run:
+
+```bash
+sheltr migrate
+```
+
+This moves all projects into `_env/`, updates `.gitattributes`, and pushes. Encryption is preserved throughout.
+
+Until you migrate, `sheltr push` will block with a warning. `sheltr pull` still works on legacy vaults.
+
+</details>
 
 ---
 
