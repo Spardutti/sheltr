@@ -1,6 +1,6 @@
 {
   "name": "@spardutti/sheltr",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Encrypted .env file storage — git-native, self-hosted, zero SaaS",
   "type": "module",
   "bin": {
