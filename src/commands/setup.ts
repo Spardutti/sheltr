@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import pc from "picocolors";
 import { showIntro, showOutro, askText, askSelect, withSpinner, log } from "../ui/index.js";
+import { join } from "node:path";
 import {
   configExists,
   readConfig,
@@ -8,6 +9,7 @@ import {
   getDefaultVaultPathForName,
   getDefaultKeyPathForName,
   ensureVaultDir,
+  getSheltrDir,
   type SheltrConfig,
 } from "../core/config.js";
 import { cloneRepo, isVaultCloned } from "../core/git.js";
@@ -136,17 +138,52 @@ export function registerSetupCommand(program: Command): void {
       console.log();
       log.info(pc.dim("Step 3 of 3") + " — Encryption key");
 
-      const keyMethod = await askSelect({
-        message: "How would you like to configure your encryption key?",
-        options: [
-          { value: "generate", label: "Generate a new key — first time setting up this vault" },
-          { value: "import", label: "Import an existing key — setting up another machine" },
-        ],
-      });
-
       const keyPath = getDefaultKeyPathForName(vaultName);
 
-      if (keyMethod === "generate") {
+      // Check if a key was pre-imported via `sheltr key import`
+      const stagingKeyPath = join(getSheltrDir(), "key");
+      const { fileExists } = await import("../core/vault.js");
+      const hasStagingKey = await fileExists(stagingKeyPath);
+
+      let keyMethod: string;
+
+      if (hasStagingKey) {
+        log.info(`Found a key at ${pc.underline(stagingKeyPath)}`);
+        const useStagingKey = await askConfirm({
+          message: "Use this key?",
+        });
+
+        keyMethod = useStagingKey ? "staging" : "generate";
+
+        if (!useStagingKey) {
+          keyMethod = await askSelect({
+            message: "How would you like to configure your encryption key?",
+            options: [
+              { value: "generate", label: "Generate a new key — first time setting up this vault" },
+              { value: "import", label: "Import an existing key — setting up another machine" },
+            ],
+          });
+        }
+      } else {
+        keyMethod = await askSelect({
+          message: "How would you like to configure your encryption key?",
+          options: [
+            { value: "generate", label: "Generate a new key — first time setting up this vault" },
+            { value: "import", label: "Import an existing key — setting up another machine" },
+          ],
+        });
+      }
+
+      if (keyMethod === "staging") {
+        await withSpinner({
+          start: "Importing key and unlocking vault...",
+          stop: "Vault unlocked!",
+          task: async () => {
+            await importKey(stagingKeyPath, keyPath);
+            await unlockVault(vaultPath, keyPath);
+          },
+        });
+      } else if (keyMethod === "generate") {
         await withSpinner({
           start: "Initializing encryption...",
           stop: "Encryption initialized!",
