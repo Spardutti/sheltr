@@ -6,7 +6,7 @@ export interface DetectedProject {
   name: string;
 }
 
-const PROJECT_MARKERS = [
+export const PROJECT_MARKERS = [
   ".git",
   "package.json",
   "pyproject.toml",

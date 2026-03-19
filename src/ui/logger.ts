@@ -13,4 +13,7 @@ export const log = {
   error(message: string): void {
     console.error(pc.red("✖"), message);
   },
+  plain(message: string): void {
+    console.log(message);
+  },
 };
