@@ -164,24 +164,58 @@ export function registerSetupCommand(program: Command): void {
           `  ${pc.red("If you lose this key, your encrypted .env files are unrecoverable.")}`,
         );
       } else {
-        const sourcePath = await askText({
-          message: "Enter the path to your key file:",
-          placeholder: "~/.sheltr/key",
-          validate(value) {
-            if (!value.trim()) return "Key path is required.";
-          },
+        const importMethod = await askSelect({
+          message: "How do you want to provide the key?",
+          options: [
+            { value: "base64", label: "Paste a base64 string — from your password manager" },
+            { value: "file", label: "Enter a file path — key file already on this machine" },
+          ],
         });
 
-        const resolvedSource = sourcePath.replace(/^~/, process.env.HOME ?? "");
+        if (importMethod === "base64") {
+          const base64 = await askText({
+            message: "Paste your base64-encoded key:",
+            validate(value) {
+              if (!value.trim()) return "Key string is required.";
+              const buf = Buffer.from(value.trim(), "base64");
+              if (buf.length === 0) return "Invalid base64 string.";
+            },
+          });
 
-        await withSpinner({
-          start: "Importing key and unlocking vault...",
-          stop: "Vault unlocked!",
-          task: async () => {
-            await importKey(resolvedSource, keyPath);
-            await unlockVault(vaultPath, keyPath);
-          },
-        });
+          const { writeFile, chmod } = await import("node:fs/promises");
+          const { dirname } = await import("node:path");
+          const { mkdir } = await import("node:fs/promises");
+          await mkdir(dirname(keyPath), { recursive: true });
+          await writeFile(keyPath, Buffer.from(base64.trim(), "base64"));
+          await chmod(keyPath, 0o400);
+
+          await withSpinner({
+            start: "Unlocking vault...",
+            stop: "Vault unlocked!",
+            task: async () => {
+              await unlockVault(vaultPath, keyPath);
+            },
+          });
+        } else {
+          const sourcePath = await askText({
+            message: "Enter the path to your key file:",
+            placeholder: "~/.sheltr/key",
+            validate(value) {
+              if (!value.trim()) return "Key path is required.";
+            },
+          });
+
+          const resolvedSource = sourcePath.replace(/^~/, process.env.HOME ?? "");
+
+          await withSpinner({
+            start: "Importing key and unlocking vault...",
+            stop: "Vault unlocked!",
+            task: async () => {
+              await importKey(resolvedSource, keyPath);
+              await unlockVault(vaultPath, keyPath);
+            },
+          });
+        }
       }
 
       // --- Save config ---
