@@ -17,6 +17,8 @@
 
 [Quick Start](#quick-start) · [Commands](#commands) · [Multiple Vaults](#multiple-vaults) · [Security](#security) · [Team Usage](#using-sheltr-with-a-team)
 
+<img src="assets/demo.gif" alt="sheltr demo" width="700" />
+
 </div>
 
 ---
