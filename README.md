@@ -106,6 +106,7 @@ Your `.env` files are restored to the exact paths they came from. If a file alre
 |---------|-------------|
 | `sheltr setup` | Connect a vault repo and configure encryption key |
 | `sheltr push` | Encrypt and push `.env` files to the vault |
+| `sheltr push-all [dir]` | Push `.env` files from all projects under a directory |
 | `sheltr pull` | Pull and restore `.env` files from the vault |
 | `sheltr status` | Compare local vs vault — shows sync status |
 | `sheltr list` | List all projects across all vaults |
@@ -125,6 +126,17 @@ Your `.env` files are restored to the exact paths they came from. If a file alre
 ```bash
 sheltr push -m "added stripe keys"
 ```
+
+### Push all projects at once
+
+```bash
+sheltr push-all ~/projects              # scan and push all
+sheltr push-all ~/projects --dry-run    # preview without pushing
+sheltr push-all --vault work            # target a specific vault
+sheltr push-all -m "weekly sync"        # custom commit message
+```
+
+Scans immediate subdirectories for projects with `.env` files, compares against the vault, and pushes everything out of sync in a single commit. Non-secret files (`.env.example`, `.env.sample`, `.env.template`) are automatically skipped.
 
 ### Pull a specific project
 
