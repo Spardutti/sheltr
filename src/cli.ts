@@ -12,6 +12,8 @@ import { registerVaultCommand } from "./commands/vault.js";
 import { registerMoveCommand } from "./commands/move.js";
 import { registerMigrateCommand } from "./commands/migrate.js";
 import { registerPushAllCommand } from "./commands/push-all.js";
+import { registerFileCommand } from "./commands/file.js";
+import { registerSecretCommand } from "./commands/secret.js";
 import { handleError } from "./utils/errors.js";
 
 const program = new Command();
@@ -32,6 +34,8 @@ registerVaultCommand(program);
 registerMoveCommand(program);
 registerMigrateCommand(program);
 registerPushAllCommand(program);
+registerFileCommand(program);
+registerSecretCommand(program);
 
 try {
   await program.parseAsync(process.argv);

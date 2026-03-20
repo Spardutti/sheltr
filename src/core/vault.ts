@@ -1,7 +1,10 @@
 import { copyFile, mkdir, readdir, readFile, writeFile, access, rm as fsRm, rename } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
+import { STORE_DIRS } from "./store.js";
 
 export const ENV_PREFIX = "_env";
+
+const EXCLUDED_VAULT_DIRS = new Set([".git", ENV_PREFIX, STORE_DIRS.files, STORE_DIRS.secrets]);
 
 const LEGACY_GITATTRIBUTES_RULE = ".env* filter=git-crypt diff=git-crypt";
 const MODERN_GITATTRIBUTES_RULE = "_env/**/.env* filter=git-crypt diff=git-crypt";
@@ -19,7 +22,7 @@ export async function detectVaultLayout(vaultPath: string): Promise<VaultLayout>
   // Check if there are any project dirs at root (legacy layout)
   const entries = await readdir(vaultPath, { withFileTypes: true });
   const hasProjectDirs = entries.some(
-    (e) => e.isDirectory() && e.name !== ".git" && e.name !== ENV_PREFIX,
+    (e) => e.isDirectory() && !EXCLUDED_VAULT_DIRS.has(e.name),
   );
 
   if (hasProjectDirs) return "legacy";
@@ -105,7 +108,7 @@ export async function listVaultProjects(vaultPath: string): Promise<string[]> {
   // Legacy layout: project dirs at root
   const entries = await readdir(vaultPath, { withFileTypes: true });
   return entries
-    .filter((e) => e.isDirectory() && e.name !== ".git" && e.name !== ENV_PREFIX)
+    .filter((e) => e.isDirectory() && !EXCLUDED_VAULT_DIRS.has(e.name))
     .map((e) => e.name)
     .sort();
 }
@@ -190,7 +193,7 @@ export async function migrateVaultLayout(vaultPath: string): Promise<{ migrated:
   // Step 2: Discover projects at root level
   const entries = await readdir(vaultPath, { withFileTypes: true });
   const projectDirs = entries
-    .filter((e) => e.isDirectory() && e.name !== ".git" && e.name !== ENV_PREFIX)
+    .filter((e) => e.isDirectory() && !EXCLUDED_VAULT_DIRS.has(e.name))
     .map((e) => e.name);
 
   // Step 3: Create _env/ and move each project
