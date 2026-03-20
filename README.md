@@ -9,7 +9,7 @@
   ╚══════╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝   ╚═╝  ╚═╝
 </pre>
 
-**Your `.env` files, encrypted and git-synced. No SaaS, no secrets lost.**
+**Your secrets, dotfiles, and `.env` files — encrypted and git-synced. No SaaS, no secrets lost.**
 
 [![npm version](https://img.shields.io/npm/v/@spardutti/sheltr?style=flat-square&color=blue)](https://www.npmjs.com/package/@spardutti/sheltr)
 [![license](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
@@ -25,7 +25,7 @@
 
 Every developer has lost a `.env` file. A dead laptop, a fresh clone, a new machine — and suddenly your project won't start because the secrets are gone.
 
-Sheltr stores your `.env` files in a **private Git repo you own**, encrypted with **AES-256 via git-crypt**. Push from one machine, pull from another. No third-party servers. No subscriptions. Just your repo, your key, your secrets.
+Sheltr stores your `.env` files, dotfiles, and secret keys in a **private Git repo you own**, encrypted with **AES-256 via git-crypt**. Push from one machine, pull from another. No third-party servers. No subscriptions. Just your repo, your key, your secrets.
 
 Designed for **solo developers** and **personal use across multiple machines**. Can also be used by small, trusted teams. Supports **multiple vaults** — keep personal and work secrets separate.
 
@@ -55,7 +55,16 @@ your-project/                         your-vault-repo/ (private, encrypted)
 │   └── .env         ── push ──►      │   └── my-app/frontend/
 │                                     │       └── .env          (AES-256 encrypted)
 └── src/                              │
-    └── index.ts                      └── .gitattributes
+    └── index.ts                      ├── _files/                (plain text)
+                                      │   ├── manifest.json
+~/.bashrc        ── file push ──►     │   ├── .bashrc
+~/.config/...    ── file push ──►     │   └── starship.toml
+                                      │
+~/.ssh/id_rsa    ── secret push ──►   ├── _secrets/              (AES-256 encrypted)
+                                      │   ├── manifest.json
+                                      │   └── id_rsa
+                                      │
+                                      └── .gitattributes
 ```
 
 1. **You create a separate private repo** — this is your vault, not your project repo
@@ -115,6 +124,12 @@ Your `.env` files are restored to the exact paths they came from. If a file alre
 | `sheltr migrate` | Migrate vault(s) from legacy layout to `_env/` layout |
 | `sheltr vault list` | List all configured vaults |
 | `sheltr vault remove` | Remove a vault configuration |
+| `sheltr file push <path>` | Store any file (unencrypted) in the vault |
+| `sheltr file pull` | Restore stored files to their original paths |
+| `sheltr file list` | List all stored files |
+| `sheltr secret push <path>` | Store a secret file (encrypted) in the vault |
+| `sheltr secret pull` | Restore secret files to their original paths |
+| `sheltr secret list` | List all stored secrets |
 | `sheltr key export` | Export your key as base64 (for backup) |
 | `sheltr key import <base64>` | Restore your key from a base64 string |
 
@@ -144,6 +159,28 @@ Scans immediate subdirectories for projects with `.env` files, compares against 
 sheltr pull my-other-app
 ```
 
+### Store dotfiles and configs
+
+```bash
+sheltr file push ~/.bashrc                    # store a dotfile (plain text)
+sheltr file push ~/.config/starship.toml      # store a config file
+sheltr file list                              # see what's stored
+sheltr file pull                              # restore to original paths
+```
+
+Sheltr warns you if a file looks like a secret (e.g. SSH keys, certificates) and suggests using `sheltr secret push` instead.
+
+### Store secrets (encrypted)
+
+```bash
+sheltr secret push ~/.ssh/id_rsa              # encrypted via git-crypt
+sheltr secret push ~/certs/server.pem         # any sensitive file
+sheltr secret list                            # see stored secrets
+sheltr secret pull                            # restore to original paths
+```
+
+Files in `_secrets/` are encrypted with the same AES-256 encryption used for `.env` files.
+
 ### Target a specific vault
 
 All commands that operate on a vault accept `--vault <name>` to skip auto-detection:
@@ -151,6 +188,8 @@ All commands that operate on a vault accept `--vault <name>` to skip auto-detect
 ```bash
 sheltr push --vault work
 sheltr pull --vault personal
+sheltr file push ~/.bashrc --vault personal
+sheltr secret push ~/.ssh/id_rsa --vault work
 sheltr status --vault work
 sheltr key export --vault personal
 ```
@@ -234,8 +273,8 @@ Requires typed confirmation. Optionally deletes local files (with a key loss war
 | Layer | Detail |
 |-------|--------|
 | **Encryption** | AES-256 via git-crypt |
-| **What's encrypted** | All `.env` file contents |
-| **What's visible** | Project and folder names in the vault repo |
+| **What's encrypted** | `.env` file contents and `_secrets/` files |
+| **What's NOT encrypted** | `_files/` (plain text), project/folder names |
 | **Key storage** | Per-vault key at `~/.sheltr/vaults/<name>/key` (permissions `0400`) |
 | **Config** | `~/.sheltr/config.json` (permissions `0600`, never uploaded) |
 | **If your vault leaks** | `.env` contents remain encrypted — unreadable without the key |
