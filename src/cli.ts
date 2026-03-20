@@ -21,7 +21,7 @@ const program = new Command();
 program
   .name("sheltr")
   .description("Encrypted .env file storage for teams")
-  .version("0.5.0");
+  .version("0.6.0");
 
 registerSetupCommand(program);
 registerPushCommand(program);
