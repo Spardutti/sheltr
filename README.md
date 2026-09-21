@@ -118,7 +118,7 @@ Your `.env` files are restored to the exact paths they came from. If a file alre
 | `sheltr push-all [dir]` | Push `.env` files from all projects under a directory |
 | `sheltr pull` | Pull and restore `.env` files from the vault |
 | `sheltr status` | Compare local vs vault — shows sync status |
-| `sheltr list` | List all projects across all vaults |
+| `sheltr list` | List all envs, files, and secrets across all vaults |
 | `sheltr delete` | Remove a project from the vault |
 | `sheltr move` | Move a project from one vault to another |
 | `sheltr migrate` | Migrate vault(s) from legacy layout to `_env/` layout |
